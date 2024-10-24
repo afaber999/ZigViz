@@ -1,28 +1,6 @@
 const std = @import("std");
 const Canvas = @import("Canvas.zig");
-
-// pub inline fn color_red(p: u32) u8 {
-//     return @truncate(p >> 8 * 3);
-// }
-
-// pub inline fn color_green(p: u32) u8 {
-//     return @truncate(p >> 8 * 2);
-// }
-
-// pub inline fn color_blue(p: u32) u8 {
-//     return @truncate(p >> 8 * 1);
-// }
-
-// pub inline fn color_alpha(p: u32) u8 {
-//     return @truncate(p >> 8 * 0);
-// }
-
-// pub inline fn color_as_bytes(p: u32) [4]u8 {
-//     return std.mem.asBytes(p);
-// }
-pub inline fn color_from_rgba(r: u8, g: u8, b: u8, a: u8) u32 {
-    return (@as(u32, r) << 8 * 3) | (@as(u32, g) << 8 * 2) | (@as(u32, b) << 8 * 1) | (@as(u32, a) << 8 * 0);
-}
+const Triangle = @import("demo_triangle.zig");
 
 pub fn save_as_ppm(canvas: Canvas, path: []const u8) !void {
     const file = try std.fs.cwd().createFile(path, .{});
@@ -43,12 +21,6 @@ pub fn save_as_ppm(canvas: Canvas, path: []const u8) !void {
             _ = try writer.write(&rgb);
         }
     }
-
-    // for (pixels) |pixel| {
-    //     const rgb = [3]u8{ color_red(pixel), color_green(pixel), color_blue(pixel) };
-    //     _ = try writer.write(&rgb);
-    //     //writer.write(color_as_bytes(pixel));
-    // }
     try buf_writer.flush();
 }
 
@@ -57,24 +29,29 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const width = 800;
-    const height = 640;
+    const height = 600;
 
-    const pixels = try allocator.alloc(u32, width * height);
-    defer allocator.free(pixels);
+    var triangle = try Triangle.init(allocator, width, height);
+    defer triangle.deinit();
 
-    const canvas = Canvas.init(pixels, width, height, width);
-    std.log.info("Canvas initialized {d} {d}\n", .{ canvas.width, canvas.height });
+    _ = triangle.render(0.0);
 
-    // for (pixels) |*pixel| {
-    //     pixel.* = color_from_rgba(255, 128, 0, 255);
-    // }
-    canvas.fill_rect(0, 10, 50, 50, color_from_rgba(0x80, 0x00, 0x80, 0xFF));
-    //canvas.fill_circle(300, 200, 50, 0xFF00FFFF);
+    // const pixels = try allocator.alloc(u32, width * height);
+    // defer allocator.free(pixels);
 
-    canvas.draw_triangle(200, 200, 220, 220, 140, 300, 0xFF00FFFF);
+    // const canvas = Canvas.init(pixels, width, height, width);
+    // std.log.info("Canvas initialized {d} {d}\n", .{ canvas.width, canvas.height });
+
+    // // for (pixels) |*pixel| {
+    // //     pixel.* = color_from_rgba(255, 128, 0, 255);
+    // // }
+    // canvas.fill_rect(0, 10, 50, 50, color_from_rgba(0x80, 0x00, 0x80, 0xFF));
+    // //canvas.fill_circle(300, 200, 50, 0xFF00FFFF);
+
+    // canvas.draw_triangle(200, 200, 220, 220, 140, 300, 0xFF00FFFF);
 
     // canvas.fill_rect(50, 300, 100, 50, color_from_rgba(0x80, 0x80, 0x80, 0xFF));
-    try save_as_ppm(canvas, "output.ppm");
+    try save_as_ppm(triangle.canvas, "output.ppm");
     std.debug.print("Writing PPM\n", .{});
 }
 

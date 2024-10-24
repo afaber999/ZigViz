@@ -1,6 +1,5 @@
 const std = @import("std");
 const common = @import("common.zig");
-
 const Triangle = @import("demo_triangle.zig");
 
 var triangle: Triangle = undefined;

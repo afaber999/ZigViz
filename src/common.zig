@@ -11,6 +11,6 @@ pub fn log(comptime fmt: []const u8, args: anytype) void {
         const slice = std.fmt.bufPrint(&buf, fmt, args) catch unreachable;
         logWasm(slice.ptr, slice.len);
     } else {
-        unreachable;
+        std.debug.print(fmt, args);
     }
 }
