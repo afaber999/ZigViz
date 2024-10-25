@@ -1,7 +1,14 @@
 let triangle_demo=document.getElementById('triangle_demo');
+let dot3d_demo=document.getElementById('dot3d_demo');
+
 triangle_demo.width=800;
 triangle_demo.height=600;
+
+dot3d_demo.width=800;
+dot3d_demo.height=600;
+
 let triangle_demo_ctx=triangle_demo.getContext('2d');
+let dot3d_demo_ctx=dot3d_demo.getContext('2d');
 
 let memory;
 
@@ -39,19 +46,25 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
 
 
     let prev = null;
-    let pixels = null;
+    let triangle_pixels = null;
+    let dot3d_pixels = null;
 
     function renderInit() {
-        pixels = w.instance.exports.triangle_init(triangle_demo.width,triangle_demo.height);
+        triangle_pixels = w.instance.exports.triangle_init(triangle_demo.width,triangle_demo.height);
 
-        if (pixels == null) {
+        if (triangle_pixels == null) {
             console.error("Failed to initialize triangle");
             return;
         }
 
+        dot3d_pixels = w.instance.exports.dot3d_init(dot3d_demo.width,dot3d_demo.height);
 
-        console.log("Pixels at: ", pixels);
-        console.log(pixels)
+        if (dot3d_pixels == null) {
+            console.error("Failed to initialize dot3d");
+            return;
+        }
+
+        console.log("Pixels at: ", dot3d_pixels);
 
         // init OK, can continue with rendering loop
         prev = performance.now();
@@ -63,11 +76,15 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
         const dt = now - prev;
 
         w.instance.exports.triangle_render(dt);
+        w.instance.exports.dot3d_render(dt);
 
         // console.log(pixels);
         // console.log(memory.buffer);
-        const triangle_demo_img = new ImageData(new Uint8ClampedArray(memory.buffer, pixels, triangle_demo.width*triangle_demo.height*4), triangle_demo.width);
+        const triangle_demo_img = new ImageData(new Uint8ClampedArray(memory.buffer, triangle_pixels, triangle_demo.width*triangle_demo.height*4), triangle_demo.width);
         triangle_demo_ctx.putImageData(triangle_demo_img, 0, 0);
+
+        const dot3d_demo_img = new ImageData(new Uint8ClampedArray(memory.buffer, dot3d_pixels, dot3d_demo.width*dot3d_demo.height*4), dot3d_demo.width);
+        dot3d_demo_ctx.putImageData(dot3d_demo_img, 0, 0);
         
         prev = now;
         window.requestAnimationFrame(renderLoop);

@@ -1,8 +1,10 @@
 const std = @import("std");
 const common = @import("common.zig");
 const Triangle = @import("demo_triangle.zig");
+const Dot3d = @import("demo_dot3d.zig");
 
 var triangle: Triangle = undefined;
+var dot3d: Dot3d = undefined;
 
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
     common.log("PANIC: {s}\n", .{msg});
@@ -18,4 +20,15 @@ pub export fn triangle_init(width: i32, height: i32) ?[*]u32 {
 
 pub export fn triangle_render(dt: f32) bool {
     return triangle.render(dt);
+}
+
+pub export fn dot3d_init(width: i32, height: i32) ?[*]u32 {
+    dot3d = Dot3d.init(std.heap.wasm_allocator, width, height) catch {
+        return null;
+    };
+    return dot3d.pixel_ptr();
+}
+
+pub export fn dot3d_render(dt: f32) bool {
+    return dot3d.render(dt);
 }
