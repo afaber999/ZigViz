@@ -50,15 +50,14 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
     let dot3d_pixels = null;
 
     function renderInit() {
-        triangle_pixels = w.instance.exports.triangle_init(triangle_demo.width,triangle_demo.height);
 
+        triangle_pixels = w.instance.exports.triangle_init(triangle_demo.width,triangle_demo.height);
         if (triangle_pixels == null) {
             console.error("Failed to initialize triangle");
             return;
         }
 
         dot3d_pixels = w.instance.exports.dot3d_init(dot3d_demo.width,dot3d_demo.height);
-
         if (dot3d_pixels == null) {
             console.error("Failed to initialize dot3d");
             return;

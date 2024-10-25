@@ -191,6 +191,12 @@ pub fn fill_rect(canvas: Self, x1: i32, y1: i32, w: i32, h: i32, color: PixelTyp
     }
 }
 
+pub fn clear(self: *Self, color: PixelType) void {
+    const w: i32 = @intCast(self.width);
+    const h: i32 = @intCast(self.height);
+    self.fill_rect(0, 0, w, h, color);
+}
+
 pub fn draw_line(canvas: Self, x1: i32, y1: i32, x2: i32, y2: i32, color: PixelType) void {
     const dx = x2 - x1;
     const dy = y2 - y1;

@@ -7,12 +7,13 @@ const log = common.log;
 pixels: []u32 = undefined,
 canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
+
 angle: f32 = 0,
 
 const Self = @This();
 
 pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
-    log("INIT from ZIG... {d} {d}\n", .{ width, height });
+    log("INIT DOT3d from ZIG... {d} {d}\n", .{ width, height });
 
     const uw: usize = @intCast(width);
     const uh: usize = @intCast(height);
@@ -57,32 +58,59 @@ fn rotate_point(point: Canvas.Point, rotation_point: Canvas.Point, angle: f32) C
 
 pub fn render(self: *Self, dt: f32) bool {
     self.angle += dt * 0.001 * 0.05 * std.math.pi;
-    //    self.angle = std.math.pi * 0.13;
-    const w: i32 = @intCast(self.canvas.width);
-    const h: i32 = @intCast(self.canvas.height);
 
-    const cp = Canvas.Point.init(@divFloor(w * 1, 2), @divFloor(h * 1, 2));
+    const hw: f32 = @as(f32, @floatFromInt(self.canvas.width)) / 2.0;
+    const hh: f32 = @as(f32, @floatFromInt(self.canvas.height)) / 2.0;
 
-    const p1 = Canvas.Point.init(@divFloor(w * 1, 2), @divFloor(h * 1, 16));
-    //const p1 = Canvas.Point.init(400 - 50, 320 - 50);
-    const p2 = Canvas.Point.init(@divFloor(w * 1, 8), @divFloor(h * 1, 4));
-    const p3 = Canvas.Point.init(@divFloor(w * 7, 8), @divFloor(h * 7, 16));
-
-    //self.angle = std.math.pi / 1.0;
-    const rp1 = rotate_point(p1, cp, self.angle);
-    const rp2 = rotate_point(p2, cp, self.angle);
-    const rp3 = rotate_point(p3, cp, self.angle);
+    const grid_count = 10;
+    const grid_pad: f32 = 0.5 / @as(f32, @floatFromInt(grid_count));
+    const grid_size = (@as(f32, @floatFromInt(grid_count)) - 1.0) * grid_pad;
+    const z_start = 0.25;
 
     const bcolor = Canvas.from_rgba(0x10, 0x10, 0x10, 0xFF);
-    const fcolor = Canvas.from_rgba(0xFF, 0x80, 0x10, 0xFF);
-    const ccolor = Canvas.from_rgba(0xFF, 0x20, 0x20, 0xFF);
+    self.canvas.clear(bcolor);
 
-    self.canvas.fill_rect(0, 0, w, h, bcolor);
-    //self.canvas.draw_triangle(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, fcolor);
+    for (0..grid_count) |iy| {
+        for (0..grid_count) |ix| {
+            for (0..grid_count) |iz| {
+                var x: f32 = @as(f32, @floatFromInt(ix)) * grid_pad - grid_size / 2.0;
+                var y: f32 = @as(f32, @floatFromInt(iy)) * grid_pad - grid_size / 2.0;
+                var z: f32 = z_start + @as(f32, @floatFromInt(iz)) * grid_pad;
 
-    self.canvas.fill_circle(cp.x, cp.y, 2, fcolor);
-    self.canvas.fill_circle(rp1.x, rp1.y, 10, ccolor);
-    self.canvas.fill_circle(rp2.x, rp2.y, 10, ccolor);
-    self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
+                const cx: f32 = 0.0;
+                const cz: f32 = z_start + grid_size / 2.0;
+
+                // rotate around y axis
+                var dx = x - cx;
+                var dz = z - cz;
+
+                const a = std.math.atan2(dz, dx);
+                const m = std.math.sqrt(dx * dx + dz * dz);
+
+                dx = std.math.cos(a + self.angle) * m;
+                dz = std.math.sin(a + self.angle) * m;
+
+                x = cx + dx;
+                z = cz + dz;
+
+                // perspective divide
+                x = x / z;
+                y = y / z;
+
+                // from normalized coordinates to screen coordinates
+                const sx = @as(i32, @intFromFloat((x + 1.0) * hw));
+                const sy = @as(i32, @intFromFloat((y + 1.0) * hh));
+
+                const radius = @as(i32, @intFromFloat(1.0 / z));
+
+                const r = @as(u8, @intCast(@divFloor(ix * 255, grid_count)));
+                const g = @as(u8, @intCast(@divFloor(iy * 255, grid_count)));
+                const b = @as(u8, @intCast(@divFloor(iz * 255, grid_count)));
+                const fcolor = Canvas.from_rgba(r, g, b, 0xFF);
+
+                self.canvas.fill_circle(sx, sy, radius, fcolor);
+            }
+        }
+    }
     return true;
 }

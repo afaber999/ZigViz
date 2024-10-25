@@ -77,7 +77,7 @@ pub fn render(self: *Self, dt: f32) bool {
     const fcolor = Canvas.from_rgba(0xFF, 0x80, 0x10, 0xFF);
     const ccolor = Canvas.from_rgba(0xFF, 0x20, 0x20, 0xFF);
 
-    self.canvas.fill_rect(0, 0, w, h, bcolor);
+    self.canvas.clear(bcolor);
     self.canvas.draw_triangle(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, fcolor);
 
     self.canvas.fill_circle(cp.x, cp.y, 2, fcolor);
