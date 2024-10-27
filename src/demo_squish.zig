@@ -9,6 +9,7 @@ canvas: Canvas = undefined,
 img_canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
 angle: f32 = 0,
+global_time: f32 = 0.0,
 
 const Self = @This();
 
@@ -53,19 +54,19 @@ pub fn deinit(self: Self) void {
 }
 
 pub fn render(self: *Self, dt: f32) bool {
-    const cx: i32 = @as(i32, @intCast(self.canvas.width / 2));
-    const cy: i32 = @as(i32, @intCast(self.canvas.height / 2));
+    self.global_time += dt;
+    const scale = @as(i32, @intFromFloat(std.math.sin(self.global_time / 1000.0) * 100.0));
 
-    const sprite_w: i32 = @as(i32, @intCast(self.img_canvas.width));
-    const sprite_h: i32 = @as(i32, @intCast(self.img_canvas.height));
+    const sprite_w: i32 = @as(i32, @intCast(self.img_canvas.width)) - scale;
+    const sprite_h: i32 = @as(i32, @intCast(self.img_canvas.height)) + scale;
 
-    const sprite_x: i32 = cx - @divFloor(sprite_w, 2);
-    const sprite_y: i32 = cy - @divFloor(sprite_h, 2);
+    const sprite_x: i32 = @as(i32, @intCast(self.canvas.width / 2)) - @divFloor(sprite_w, 2);
+    const sprite_y: i32 = @as(i32, @intCast(self.canvas.height / 2)) - sprite_h;
 
     const bcolor = Canvas.from_rgba(0x10, 0x10, 0x10, 0xFF);
     self.canvas.clear(bcolor);
+
     var sub_canvas = self.canvas.sub_canvas(sprite_x, sprite_y, sprite_w, sprite_h) catch unreachable;
     sub_canvas.copy_nb(self.img_canvas);
-    _ = dt;
     return true;
 }

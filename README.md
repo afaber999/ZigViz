@@ -1,18 +1,21 @@
-Very simple graphics library written in ZIG, no external dependencies, can be compiled to WASM to run examples in the browser.
 
+Simple graphics library that does not have any dependencies and renders everything into the given memory pixel by pixel. The library is written in ZIG and has no external dependencies, it can be compiled to WASM to run examples in the browser.
 
 Inspired by https://github.com/tsoding/olive.c
 
-
-zig build run -- dot3d
-
+To run 'as native', currently only tested for Windows platform, todo for Linux and MAC 
 
 
-# run wasm samples
-start http server for zig-out\html\index.html
-
+# build / run wasm samples
+to build: zig build
+to run:  start http server for zig-out\html\index.html
 
 # run native examples
+to build: zig build
+to run: zig build run -- dot3d
+
+# Examples
+Currently there are 3 exmample:
 
 zig-out\bin\zigviz.exe demoName
 or use zig build run -- demoName
