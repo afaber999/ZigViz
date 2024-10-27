@@ -71,10 +71,22 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigviz",
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/demo_fenster.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    exe.addIncludePath(b.path("src"));
+    exe.addCSourceFile(.{ .file = b.path("src/fenster.c"), .flags = &[_][]const u8{} });
+
+    switch (target.result.os.tag) {
+        .macos => exe.linkFramework("Cocoa"),
+        .windows => exe.linkSystemLibrary("gdi32"),
+        .linux => exe.linkSystemLibrary("X11"),
+        else => {},
+    }
+
+    exe.linkLibC();
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

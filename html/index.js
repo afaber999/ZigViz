@@ -1,5 +1,6 @@
 let triangle_demo=document.getElementById('triangle_demo');
 let dot3d_demo=document.getElementById('dot3d_demo');
+let squish_demo=document.getElementById('squish_demo');
 
 triangle_demo.width=800;
 triangle_demo.height=600;
@@ -7,8 +8,12 @@ triangle_demo.height=600;
 dot3d_demo.width=800;
 dot3d_demo.height=600;
 
+squish_demo.width=800;
+squish_demo.height=600;
+
 let triangle_demo_ctx=triangle_demo.getContext('2d');
 let dot3d_demo_ctx=dot3d_demo.getContext('2d');
+let squish_demo_ctx=squish_demo.getContext('2d');
 
 let memory;
 
@@ -48,6 +53,7 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
     let prev = null;
     let triangle_pixels = null;
     let dot3d_pixels = null;
+    let squish_pixels = null;
 
     function renderInit() {
 
@@ -63,7 +69,15 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
             return;
         }
 
-        console.log("Pixels at: ", dot3d_pixels);
+        squish_pixels = w.instance.exports.squish_init(squish_demo.width,squish_demo.height);
+        if (squish_pixels == null) {
+            console.error("Failed to initialize squish");
+            return;
+        }
+
+        console.log("triangle pixels at: ", triangle_pixels);
+        console.log("dot3d    pixels at: ", dot3d_pixels);
+        console.log("squish   pixels at: ", squish_pixels);
 
         // init OK, can continue with rendering loop
         prev = performance.now();
@@ -76,6 +90,7 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
 
         w.instance.exports.triangle_render(dt);
         w.instance.exports.dot3d_render(dt);
+        w.instance.exports.squish_render(dt);
 
         // console.log(pixels);
         // console.log(memory.buffer);
@@ -85,6 +100,9 @@ WebAssembly.instantiateStreaming(fetch("demos.wasm"), {
         const dot3d_demo_img = new ImageData(new Uint8ClampedArray(memory.buffer, dot3d_pixels, dot3d_demo.width*dot3d_demo.height*4), dot3d_demo.width);
         dot3d_demo_ctx.putImageData(dot3d_demo_img, 0, 0);
         
+        const squish_demo_img = new ImageData(new Uint8ClampedArray(memory.buffer, squish_pixels, squish_demo.width*squish_demo.height*4), squish_demo.width);
+        squish_demo_ctx.putImageData(squish_demo_img, 0, 0);
+
         prev = now;
         window.requestAnimationFrame(renderLoop);
     }

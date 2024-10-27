@@ -17,6 +17,26 @@ pub fn init(pixels: []u32, width: usize, height: usize, stride: usize) Self {
     };
 }
 
+pub fn sub_canvas(self: Self, x: i32, y: i32, w: i32, h: i32) !Self {
+    const bounds = self.normalized_bounds(x, y, w, h);
+
+    if (bounds.is_empty()) return error.InvalidBounds;
+
+    const sub_index = self.pixel_index(bounds.xs, bounds.ys);
+    return Self.init(self.pixels[sub_index..], bounds.xe - bounds.xs, bounds.ye - bounds.ys, self.stride);
+}
+
+pub fn copy_nb(dst: *Self, src: Self) void {
+    for (0..dst.height) |y| {
+        for (0..dst.width) |x| {
+            const nx = @divFloor(x * src.width, dst.width);
+            const ny = @divFloor(y * src.height, dst.height);
+            const p = src.pixel_value(nx, ny);
+            dst.set_pixel(x, y, p);
+        }
+    }
+}
+
 pub inline fn pixel_index(self: Self, x: usize, y: usize) usize {
     return y * self.stride + x;
 }
@@ -145,6 +165,10 @@ pub const Ubounds = struct {
             .xe = xe,
             .ye = ye,
         };
+    }
+
+    pub fn is_empty(self: Ubounds) bool {
+        return self.xs >= self.xe or self.ys >= self.ye;
     }
 };
 

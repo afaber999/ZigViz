@@ -1,6 +1,9 @@
 const std = @import("std");
 const Canvas = @import("Canvas.zig");
 const Triangle = @import("demo_triangle.zig");
+const common = @import("common.zig");
+
+const png = @import("png.zig");
 
 pub fn save_as_ppm(canvas: Canvas, path: []const u8) !void {
     const file = try std.fs.cwd().createFile(path, .{});
@@ -23,6 +26,11 @@ pub fn save_as_ppm(canvas: Canvas, path: []const u8) !void {
     }
     try buf_writer.flush();
 }
+
+const c = @cImport({
+    @cInclude("fenster.h");
+});
+
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -53,6 +61,58 @@ pub fn main() !void {
     // canvas.fill_rect(50, 300, 100, 50, color_from_rgba(0x80, 0x80, 0x80, 0xFF));
     try save_as_ppm(triangle.canvas, "output.ppm");
     std.debug.print("Writing PPM\n", .{});
+
+    // const img = png.Image{
+    //     .width = @intCast(triangle.canvas.width),
+    //     .height = @intCast(triangle.canvas.height),
+    //     .pixels = triangle.canvas.pixels,
+    // };
+
+    // var img = try png.Image.init(allocator, @intCast(triangle.canvas.width), @intCast(triangle.canvas.height));
+    // defer img.deinit(allocator);
+
+    // var idx: usize = 0;
+    // for (0..triangle.canvas.height) |y| {
+    //     for (0..triangle.canvas.width) |x| {
+    //         const pixel = triangle.canvas.pixel_value(x, y);
+    //         //img.pixels[idx] = .{ Canvas.red(pixel), Canvas.green(pixel), Canvas.blue(pixel), Canvas.alpha(pixel) }; // rgba_to_pixel
+    //         img.pixels[idx] = .{ @as(u16, @intCast(Canvas.red(pixel))) << 8, @as(u16, @intCast(Canvas.green(pixel))) << 8, @as(u16, @intCast(Canvas.blue(pixel))) << 8, @as(u16, @intCast(Canvas.alpha(pixel))) << 8 };
+    //         idx += 1;
+    //     }
+    // }
+
+    // const file = try std.fs.cwd().createFile("output.png", .{});
+    // defer file.close();
+    // const writer = file.writer();
+    // const opts = png.EncodeOptions{ .bit_depth = 8 };
+    // //    try img.write(allocator, writer, opts);
+
+    const epin = @embedFile("./assets/tsodinPog.png");
+
+    const pin = "tsodinPog.png";
+    const fin = try std.fs.cwd().openFile(pin, .{});
+    defer fin.close();
+    const reader = fin.reader();
+
+    const pix_canvas = try common.read_png(allocator, reader);
+    defer allocator.free(pix_canvas.pixels);
+
+    try save_as_ppm(pix_canvas.canvas, "output1.ppm");
+
+    // var img2 = try png.Image.read(allocator, reader);
+    // defer img2.deinit(allocator);
+    // try img2.write(allocator, writer, opts);
+
+    const file = try std.fs.cwd().createFile("output.png", .{});
+    defer file.close();
+    const writer = file.writer();
+    try common.write_png(allocator, triangle.canvas, writer);
+
+    var str = std.io.fixedBufferStream(epin);
+    const epix_canvas = try common.read_png(allocator, str.reader());
+    defer allocator.free(epix_canvas.pixels);
+    try save_as_ppm(epix_canvas.canvas, "output2.ppm");
+    try fenster_main(allocator);
 }
 
 test "simple test" {
