@@ -4,10 +4,15 @@ const Canvas = @import("Canvas.zig");
 
 const log = common.log;
 
+const circle_rad = 90;
+
 pixels: []u32 = undefined,
 canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
 angle: f32 = 0,
+
+circle_loc: Canvas.Point = Canvas.Point.init(100, 100),
+circle_delta: Canvas.Point = Canvas.Point.init(1, 1),
 
 const Self = @This();
 
@@ -64,11 +69,9 @@ pub fn render(self: *Self, dt: f32) bool {
     const cp = Canvas.Point.init(@divFloor(w * 1, 2), @divFloor(h * 1, 2));
 
     const p1 = Canvas.Point.init(@divFloor(w * 1, 2), @divFloor(h * 1, 16));
-    //const p1 = Canvas.Point.init(400 - 50, 320 - 50);
     const p2 = Canvas.Point.init(@divFloor(w * 1, 8), @divFloor(h * 1, 4));
     const p3 = Canvas.Point.init(@divFloor(w * 7, 8), @divFloor(h * 7, 16));
 
-    //self.angle = std.math.pi / 1.0;
     const rp1 = rotate_point(p1, cp, self.angle);
     const rp2 = rotate_point(p2, cp, self.angle);
     const rp3 = rotate_point(p3, cp, self.angle);
@@ -76,6 +79,7 @@ pub fn render(self: *Self, dt: f32) bool {
     const bcolor = Canvas.from_rgba(0x10, 0x10, 0x10, 0xFF);
     const fcolor = Canvas.from_rgba(0xFF, 0x80, 0x10, 0xFF);
     const ccolor = Canvas.from_rgba(0xFF, 0x20, 0x20, 0xFF);
+    const ocolor = Canvas.from_rgba(0x20, 0x20, 0xAA, 0x99);
 
     self.canvas.clear(bcolor);
     self.canvas.draw_triangle(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, fcolor);
@@ -84,5 +88,13 @@ pub fn render(self: *Self, dt: f32) bool {
     self.canvas.fill_circle(rp1.x, rp1.y, 10, ccolor);
     self.canvas.fill_circle(rp2.x, rp2.y, 10, ccolor);
     self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
+
+    self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
+
+    self.circle_loc = self.circle_loc.add(self.circle_delta);
+
+    if (self.circle_loc.x < circle_rad or self.circle_loc.x > w - circle_rad) self.circle_delta.x *= -1;
+    if (self.circle_loc.y < circle_rad or self.circle_loc.y > h - circle_rad) self.circle_delta.y *= -1;
+    self.canvas.fill_circle(self.circle_loc.x, self.circle_loc.y, circle_rad, ocolor);
     return true;
 }

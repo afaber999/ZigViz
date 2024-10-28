@@ -106,21 +106,21 @@ pub inline fn in_bounds(self: Self, comptime T: type, x: T, y: T) bool {
 }
 
 pub fn blend_color(c1: PixelType, c2: PixelType) PixelType {
-    const r1 = red(c1);
-    const g1 = green(c1);
-    const b1 = blue(c1);
+    const r1 = @as(u32, @intCast(red(c1)));
+    const g1 = @as(u32, @intCast(green(c1)));
+    const b1 = @as(u32, @intCast(blue(c1)));
     const a1 = alpha(c1);
 
-    const r2 = red(c2);
-    const g2 = green(c2);
-    const b2 = blue(c2);
-    const a2 = alpha(c2);
+    const r2 = @as(u32, @intCast(red(c2)));
+    const g2 = @as(u32, @intCast(green(c2)));
+    const b2 = @as(u32, @intCast(blue(c2)));
+    const a2 = @as(u32, @intCast(alpha(c2)));
 
-    const r3: i32 = @min((@as(i32, r1) * (255 - a2) + @as(i32, r2) * @as(i32, a2)) / 255, 255);
-    const g3: i32 = @min((@as(i32, g1) * (255 - a2) + @as(i32, g2) * @as(i32, a2)) / 255, 255);
-    const b3: i32 = @min((@as(i32, b1) * (255 - a2) + @as(i32, b2) * @as(i32, a2)) / 255, 255);
+    const r: u32 = @min((r1 * (255 - a2) + r2 * a2) / 255, 255);
+    const g: u32 = @min((g1 * (255 - a2) + g2 * a2) / 255, 255);
+    const b: u32 = @min((b1 * (255 - a2) + b2 * a2) / 255, 255);
 
-    return from_rgba(@truncate(r3), @truncate(g3), @truncate(b3), a1);
+    return from_rgba(@truncate(r), @truncate(g), @truncate(b), a1);
 }
 
 pub const Point = struct {
@@ -199,18 +199,20 @@ pub fn fill_circle(self: Self, cx: i32, cy: i32, r: i32, color: PixelType) void 
             const dx = @as(i32, @intCast(x)) - cx;
             const dy = @as(i32, @intCast(y)) - cy;
             if (dx * dx + dy * dy <= r2) {
-                self.set_pixel(x, y, color);
+                const bc = blend_color(self.pixel_value(x, y), color);
+                self.set_pixel(x, y, bc);
             }
         }
     }
 }
 
-pub fn fill_rect(canvas: Self, x1: i32, y1: i32, w: i32, h: i32, color: PixelType) void {
-    const bounds = canvas.normalized_bounds(x1, y1, w, h);
+pub fn fill_rect(self: Self, x1: i32, y1: i32, w: i32, h: i32, color: PixelType) void {
+    const bounds = self.normalized_bounds(x1, y1, w, h);
 
     for (bounds.ys..bounds.ye) |y| {
         for (bounds.xs..bounds.xe) |x| {
-            canvas.set_pixel(x, y, color);
+            const bc = blend_color(self.pixel_value(x, y), color);
+            self.set_pixel(x, y, bc);
         }
     }
 }
@@ -221,7 +223,7 @@ pub fn clear(self: *Self, color: PixelType) void {
     self.fill_rect(0, 0, w, h, color);
 }
 
-pub fn draw_line(canvas: Self, x1: i32, y1: i32, x2: i32, y2: i32, color: PixelType) void {
+pub fn draw_line(self: Self, x1: i32, y1: i32, x2: i32, y2: i32, color: PixelType) void {
     const dx = x2 - x1;
     const dy = y2 - y1;
 
@@ -230,9 +232,13 @@ pub fn draw_line(canvas: Self, x1: i32, y1: i32, x2: i32, y2: i32, color: PixelT
     var xe = x2;
     var ye = y2;
 
+    // think this shouldn't draw anything if the line is a point
     if (dx == 0 and dy == 0) {
-        if (canvas.in_bounds(i32, xs, ys)) {
-            canvas.set_pixel(@intCast(xs), @intCast(ys), color);
+        if (self.in_bounds(i32, xs, ys)) {
+            const x: i32 = @intCast(xs);
+            const y: i32 = @intCast(ys);
+            const bc = blend_color(self.pixel_value(x, y), color);
+            self.set_pixel(x, y, bc);
             return;
         }
     }
@@ -245,10 +251,12 @@ pub fn draw_line(canvas: Self, x1: i32, y1: i32, x2: i32, y2: i32, color: PixelT
 
         var x = xs;
         while (x < xs) : (x += 1) {
-            if (!canvas.in_x_bounds(i32, x)) continue;
+            if (!self.in_x_bounds(i32, x)) continue;
             const y = @divFloor(dy * (x - xs), dx) + ys;
-            if (!canvas.in_y_bounds(i32, y)) continue;
-            canvas.set_pixel(@intCast(x), @intCast(y), color);
+            if (!self.in_y_bounds(i32, y)) continue;
+
+            const bc = blend_color(self.pixel_value(x, y), color);
+            self.set_pixel(x, y, bc);
         }
     } else {
         if (ys > ye) {
@@ -258,10 +266,12 @@ pub fn draw_line(canvas: Self, x1: i32, y1: i32, x2: i32, y2: i32, color: PixelT
 
         var y = ys;
         while (y < ye) : (y += 1) {
-            if (!canvas.in_y_bounds(i32, y)) continue;
+            if (!self.in_y_bounds(i32, y)) continue;
             const x = @divFloor(dx * (y - ys), dy) + xs;
-            if (!canvas.in_x_bounds(i32, x)) continue;
-            canvas.set_pixel(@intCast(x), @intCast(y), color);
+            if (!self.in_x_bounds(i32, x)) continue;
+
+            const bc = blend_color(self.pixel_value(x, y), color);
+            self.set_pixel(x, y, bc);
         }
     }
 }
@@ -297,7 +307,8 @@ pub fn draw_triangle(self: Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3
         var x = s1;
         while (x <= s2) : (x += 1) {
             if (!self.in_x_bounds(i32, x)) continue;
-            self.set_pixel(@intCast(x), @intCast(y), color);
+            const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), color);
+            self.set_pixel(@intCast(x), @intCast(y), bc);
         }
     }
 
@@ -316,25 +327,8 @@ pub fn draw_triangle(self: Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3
         var x = s1;
         while (x <= s2) : (x += 1) {
             if (!self.in_x_bounds(i32, x)) continue;
-            self.set_pixel(@intCast(x), @intCast(y), color);
+            const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), color);
+            self.set_pixel(@intCast(x), @intCast(y), bc);
         }
     }
-
-    // int dx32 = x2 - x3;
-    // int dy32 = y2 - y3;
-    // int dx31 = x1 - x3;
-    // int dy31 = y1 - y3;
-
-    // for (int y = y2; y <= y3; ++y) {
-    //     if (0 <= y && (size_t) y < oc.height) {
-    //         int s1 = dy32 != 0 ? (y - y3)*dx32/dy32 + x3 : x3;
-    //         int s2 = dy31 != 0 ? (y - y3)*dx31/dy31 + x3 : x3;
-    //         if (s1 > s2) OLIVEC_SWAP(int, s1, s2);
-    //         for (int x = s1; x <= s2; ++x) {
-    //             if (0 <= x && (size_t) x < oc.width) {
-    //                 olivec_blend_color(&OLIVEC_PIXEL(oc, x, y), color);
-    //             }
-    //         }
-    //     }
-    // }
 }

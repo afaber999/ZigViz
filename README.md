@@ -4,7 +4,8 @@ Simple graphics library that does not have any dependencies and renders everythi
 Inspired by https://github.com/tsoding/olive.c
 
 To run 'as native', currently only tested for Windows platform, todo for Linux and MAC 
-
+native code based on fenster c library from Serge Zaitsev
+https://github.com/zserge/fenster
 
 # build / run wasm samples
 to build: zig build

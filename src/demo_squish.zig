@@ -8,7 +8,6 @@ pixels: []u32 = undefined,
 canvas: Canvas = undefined,
 img_canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
-angle: f32 = 0,
 global_time: f32 = 0.0,
 
 const Self = @This();
