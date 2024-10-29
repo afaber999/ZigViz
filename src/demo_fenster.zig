@@ -6,11 +6,13 @@ const Canvas = @import("Canvas.zig");
 const Dot3d = @import("demo_dot3d.zig");
 const Squish = @import("demo_squish.zig");
 const Triangle = @import("demo_triangle.zig");
+const Triangle3c = @import("demo_triangle3c.zig");
 
 const Demo = union(enum) {
     dot3d: Dot3d,
     squish: Squish,
     triangle: Triangle,
+    triangle3c: Triangle3c,
 };
 
 pub fn main() !void {
@@ -44,6 +46,9 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, demoName, "triangle")) {
         demo = Demo{ .triangle = try Triangle.init(allocator, width, height) };
         canvas = demo.triangle.canvas;
+    } else if (std.mem.eql(u8, demoName, "triangle3c")) {
+        demo = Demo{ .triangle3c = try Triangle3c.init(allocator, width, height) };
+        canvas = demo.triangle3c.canvas;
     } else {
         return error.Unreachable;
     }
@@ -52,6 +57,7 @@ pub fn main() !void {
         .dot3d => demo.dot3d.deinit(),
         .squish => demo.squish.deinit(),
         .triangle => demo.triangle.deinit(),
+        .triangle3c => demo.triangle.deinit(),
     };
 
     var f = std.mem.zeroInit(c.fenster, .{
@@ -70,11 +76,12 @@ pub fn main() !void {
     while (c.fenster_loop(&f) == 0) {
         const dt: f32 = @floatFromInt(now - prev);
         prev = now;
-        
+
         _ = switch (demo) {
             .dot3d => demo.dot3d.render(dt),
             .squish => demo.squish.render(dt),
             .triangle => demo.triangle.render(dt),
+            .triangle3c => demo.triangle3c.render(dt),
         };
 
         var idx: usize = 0;

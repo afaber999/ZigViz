@@ -8,7 +8,7 @@ height: usize,
 stride: usize,
 pixels: []PixelType,
 
-pub fn init(pixels: []u32, width: usize, height: usize, stride: usize) Self {
+pub fn init(pixels: []PixelType, width: usize, height: usize, stride: usize) Self {
     return .{
         .width = width,
         .height = height,
@@ -295,6 +295,30 @@ pub fn draw_triangle(self: Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3
     const d12 = Point.sub(p2, p1);
     const d13 = Point.sub(p3, p1);
 
+    // //const looper = struct { fn bar(a:i32) i32 {return  a+1;}.bar;
+    // const Inner = struct {
+    //     fn loop(pt: Point, p2: Point) void {
+    //         var y = pt.y;
+    //         while (y <= p2.y) : (y += 1) {
+    //             if (!self.in_y_bounds(i32, y)) continue;
+
+    //             var s1 = if (d12.y != 0) @divFloor((y - pt.y) * d12.x, d12.y) + pt.x else pt.x;
+    //             var s2 = if (d13.y != 0) @divFloor((y - pt.y) * d13.x, d13.y) + pt.x else pt.x;
+
+    //             if (s1 > s2) std.mem.swap(i32, &s1, &s2);
+
+    //             var x = s1;
+    //             while (x <= s2) : (x += 1) {
+    //                 if (!self.in_x_bounds(i32, x)) continue;
+    //                 const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), color);
+    //                 self.set_pixel(@intCast(x), @intCast(y), bc);
+    //             }
+    //         }
+    //     }
+    // };
+
+    // Inner.loop(1);
+
     var y = p1.y;
     while (y <= p2.y) : (y += 1) {
         if (!self.in_y_bounds(i32, y)) continue;
@@ -329,6 +353,184 @@ pub fn draw_triangle(self: Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3
             if (!self.in_x_bounds(i32, x)) continue;
             const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), color);
             self.set_pixel(@intCast(x), @intCast(y), bc);
+        }
+    }
+}
+
+const BaryCoord = struct {
+    u1: i32,
+    u2: i32,
+    u3: i32,
+    det: i32,
+};
+
+fn barycentric(p1: Point, p2: Point, p3: Point, pt: Point) ?BaryCoord {
+    const det: i32 = ((p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y));
+    const ub1: i32 = ((p2.y - p3.y) * (pt.x - p3.x) + (p3.x - p2.x) * (pt.y - p3.y));
+    const ub2: i32 = ((p3.y - p1.y) * (pt.x - p3.x) + (p1.x - p3.x) * (pt.y - p3.y));
+    const ub3: i32 = det - ub1 - ub2;
+
+    const ret = BaryCoord{
+        .u1 = ub1,
+        .u2 = ub2,
+        .u3 = ub3,
+        .det = det,
+    };
+
+    const sdet = std.math.sign(det);
+    if ((std.math.sign(ub1) == sdet or ub1 == 0) and
+        (std.math.sign(ub2) == sdet or ub2 == 0) and
+        (std.math.sign(ub3) == sdet or ub3 == 0))
+    {
+        return ret;
+    }
+    return null;
+}
+
+// const NormalizeTriangle = struct {
+//     lx: i32,
+//     hx: i32,
+//     ly: i32,
+//     hy: i32,
+// };
+
+// fn normalize_triangle(self: Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32) NormalizeTriangle {
+//     const lx: i32 = @max(0, @min(@min(x1, x2), x3));
+//     const hx: i32 = @min(@as(i32, @intCast(self.width)), @max(@max(x1, x2), x3));
+
+//     if (lx > @as(i32, @intCast(self.width))) return error.InvalidBounds;
+//     if (hx < 0) return error.InvalidBounds;
+
+//     const ly: i32 = @max(0, @min(@min(y1, y2), y3));
+//     const hy: i32 = @min(@as(i32, @intCast(self.height)), @max(@max(y1, y2), y3));
+
+//     if (ly > @as(i32, @intCast(self.height))) return error.InvalidBounds;
+//     if (hy < 0) return error.InvalidBounds;
+
+//     return NormalizeTriangle{
+//         .lx = lx,
+//         .hx = hx,
+//         .ly = ly,
+//         .hy = hy,
+//     };
+// }
+
+// fn PixelClampFromi32(r: i32, g: i32, b: i32, a: i32) PixelType {
+//     const r = @as(u8, @intCast(@max(0, @min(r, 255))));
+//     const g = @as(u8, @intCast(@max(0, @min(g, 255))));
+//     const b = @as(u8, @intCast(@max(0, @min(b, 255))));
+//     const a = @as(u8, @intCast(@max(0, @min(a, 255)));
+//     return from_rgba(r, g, b, a);
+// }
+
+fn mix_colors3(c1: PixelType, c2: PixelType, c3: PixelType, bc: BaryCoord) PixelType {
+    if (bc.det == 0) return from_rgba(0, 0, 0, 0);
+
+    const r1 = @as(i32, @intCast(red(c1)));
+    const g1 = @as(i32, @intCast(green(c1)));
+    const b1 = @as(i32, @intCast(blue(c1)));
+    const a1 = @as(i32, @intCast(alpha(c1)));
+
+    const r2 = @as(i32, @intCast(red(c2)));
+    const g2 = @as(i32, @intCast(green(c2)));
+    const b2 = @as(i32, @intCast(blue(c2)));
+    const a2 = @as(i32, @intCast(alpha(c2)));
+
+    const r3 = @as(i32, @intCast(red(c3)));
+    const g3 = @as(i32, @intCast(green(c3)));
+    const b3 = @as(i32, @intCast(blue(c3)));
+    const a3 = @as(i32, @intCast(alpha(c3)));
+
+    const r4 = @divFloor((r1 * bc.u1 + r2 * bc.u2 + r3 * bc.u3), bc.det);
+    const g4 = @divFloor((g1 * bc.u1 + g2 * bc.u2 + g3 * bc.u3), bc.det);
+    const b4 = @divFloor((b1 * bc.u1 + b2 * bc.u2 + b3 * bc.u3), bc.det);
+    const a4 = @divFloor((a1 * bc.u1 + a2 * bc.u2 + a3 * bc.u3), bc.det);
+
+    const r = @as(u8, @truncate(@max(0, @min(r4, 255))));
+    const g = @as(u8, @truncate(@max(0, @min(g4, 255))));
+    const b = @as(u8, @truncate(@max(0, @min(b4, 255))));
+    const a = @as(u8, @truncate(@max(0, @min(a4, 255))));
+
+    return from_rgba(r, g, b, a);
+}
+
+// pub fn triangle3c(self: *Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32, c1: PixelType, c2: PixelType, c3: PixelType) void {
+//     if (self.normalize_triangle(x1, y1, x2, y2, x3, y3)) |nr| {
+//         var y = nr.ly;
+//         while (y < nr.hy) : (y += 1) {
+//             var x = nr.lx;
+//             while (x < nr.hx) : (x += 1) {
+//                 if (self.olivec_barycentric(x1, y1, x2, y2, x3, y3, x, y)) |bc| {
+//                     self.blend_color(self.pixel_ptr(x, y), mix_colors3(c1, c2, c3, bc));
+//                 }
+//             }
+//         }
+//     }
+// }
+
+pub fn draw_triangle3c(self: *Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32, c1: PixelType, c2: PixelType, c3: PixelType) void {
+    const Triangle3cData = struct {
+        point: Point,
+        color: PixelType,
+    };
+
+    var p1 = Triangle3cData{ .point = Point.init(x1, y1), .color = c1 };
+    var p2 = Triangle3cData{ .point = Point.init(x2, y2), .color = c2 };
+    var p3 = Triangle3cData{ .point = Point.init(x3, y3), .color = c3 };
+
+    if (p1.point.y > p2.point.y) std.mem.swap(Triangle3cData, &p1, &p2);
+    if (p2.point.y > p3.point.y) std.mem.swap(Triangle3cData, &p2, &p3);
+    if (p1.point.y > p2.point.y) std.mem.swap(Triangle3cData, &p1, &p2);
+
+    const d12 = Point.sub(p2.point, p1.point);
+    const d13 = Point.sub(p3.point, p1.point);
+
+    var y = p1.point.y;
+    while (y <= p2.point.y) : (y += 1) {
+        if (!self.in_y_bounds(i32, y)) continue;
+
+        var s1 = if (d12.y != 0) @divFloor((y - p1.point.y) * d12.x, d12.y) + p1.point.x else p1.point.x;
+        var s2 = if (d13.y != 0) @divFloor((y - p1.point.y) * d13.x, d13.y) + p1.point.x else p1.point.x;
+
+        if (s1 > s2) std.mem.swap(i32, &s1, &s2);
+
+        var x = s1;
+        while (x <= s2) : (x += 1) {
+            if (!self.in_x_bounds(i32, x)) continue;
+            if (barycentric(p1.point, p2.point, p3.point, Point.init(x, y))) |bc| {
+                const mc = mix_colors3(p1.color, p2.color, p3.color, bc);
+                const oc = self.pixel_ptr(@intCast(x), @intCast(y));
+                const nc = blend_color(oc.*, mc);
+                oc.* = nc;
+            }
+        }
+    }
+
+    const d32 = Point.sub(p2.point, p3.point);
+    const d31 = Point.sub(p1.point, p3.point);
+
+    y = p2.point.y;
+    while (y <= p3.point.y) : (y += 1) {
+        if (!self.in_y_bounds(i32, y)) continue;
+
+        var s1 = if (d32.y != 0) @divFloor((y - p3.point.y) * d32.x, d32.y) + p3.point.x else p3.point.x;
+        var s2 = if (d31.y != 0) @divFloor((y - p3.point.y) * d31.x, d31.y) + p3.point.x else p3.point.x;
+
+        if (s1 > s2) std.mem.swap(i32, &s1, &s2);
+
+        var x = s1;
+        while (x <= s2) : (x += 1) {
+            if (!self.in_x_bounds(i32, x)) continue;
+
+            if (barycentric(p1.point, p2.point, p3.point, Point.init(x, y))) |bc| {
+                const mc = mix_colors3(p1.color, p2.color, p3.color, bc);
+                const oc = self.pixel_ptr(@intCast(x), @intCast(y));
+                const nc = blend_color(oc.*, mc);
+                oc.* = nc;
+            }
+
+            // const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), p2.color);
+            // self.set_pixel(@intCast(x), @intCast(y), bc);
         }
     }
 }

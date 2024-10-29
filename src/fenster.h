@@ -222,6 +222,7 @@ static LRESULT CALLBACK fenster_wndproc(HWND hwnd, UINT msg, WPARAM wParam,
 }
 
 FENSTER_API int fenster_open(struct fenster *f) {
+  DWORD dwStyle = WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX & ~WS_MINIMIZEBOX | WS_VISIBLE;
   HINSTANCE hInstance = GetModuleHandle(NULL);
   WNDCLASSEX wc = {0};
   wc.cbSize = sizeof(WNDCLASSEX);
@@ -230,9 +231,16 @@ FENSTER_API int fenster_open(struct fenster *f) {
   wc.hInstance = hInstance;
   wc.lpszClassName = f->title;
   RegisterClassEx(&wc);
+
+  // Calculate the required size of the window rectangle based on desired client area size
+  RECT windowRect = { 0, 0, f->width, f->height };
+  AdjustWindowRectEx(&windowRect, dwStyle, FALSE, 0);
+
   f->hwnd = CreateWindowEx(WS_EX_CLIENTEDGE, f->title, f->title,
-                           WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
-                           f->width, f->height, NULL, NULL, hInstance, NULL);
+                           dwStyle, CW_USEDEFAULT, CW_USEDEFAULT,
+                           windowRect.right - windowRect.left + 4,
+                           windowRect.bottom - windowRect.top + 4,
+                           NULL, NULL, hInstance, NULL);
 
   if (f->hwnd == NULL)
     return -1;

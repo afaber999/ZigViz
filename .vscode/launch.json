@@ -11,7 +11,9 @@
         "order": 1
       },
       "program": "${workspaceFolder}/zig-out/bin/${workspaceFolderBasename}.exe",
-      "args": [ ],
+      "args": [ 
+        "triangle3c"
+       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
