@@ -7,12 +7,14 @@ const Dot3d = @import("demo_dot3d.zig");
 const Squish = @import("demo_squish.zig");
 const Triangle = @import("demo_triangle.zig");
 const Triangle3c = @import("demo_triangle3c.zig");
+const TriangleTex = @import("demo_triangle_tex.zig");
 
 const Demo = union(enum) {
     dot3d: Dot3d,
     squish: Squish,
     triangle: Triangle,
     triangle3c: Triangle3c,
+    triangle_tex: TriangleTex,
 };
 
 pub fn main() !void {
@@ -49,6 +51,9 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, demoName, "triangle3c")) {
         demo = Demo{ .triangle3c = try Triangle3c.init(allocator, width, height) };
         canvas = demo.triangle3c.canvas;
+    } else if (std.mem.eql(u8, demoName, "triangle_tex")) {
+        demo = Demo{ .triangle_tex = try TriangleTex.init(allocator, width, height) };
+        canvas = demo.triangle_tex.canvas;
     } else {
         return error.Unreachable;
     }
@@ -57,15 +62,16 @@ pub fn main() !void {
         .dot3d => demo.dot3d.deinit(),
         .squish => demo.squish.deinit(),
         .triangle => demo.triangle.deinit(),
-        .triangle3c => demo.triangle.deinit(),
+        .triangle3c => demo.triangle3c.deinit(),
+        .triangle_tex => demo.triangle_tex.deinit(),
     };
 
-    var f = std.mem.zeroInit(c.fenster, .{
+    var f : c.fenster = .{
         .width = width,
         .height = height,
         .title = "DEMO window",
         .buf = fenster_buffer.ptr,
-    });
+    };
 
     _ = c.fenster_open(&f);
     defer c.fenster_close(&f);
@@ -82,12 +88,13 @@ pub fn main() !void {
             .squish => demo.squish.render(dt),
             .triangle => demo.triangle.render(dt),
             .triangle3c => demo.triangle3c.render(dt),
+            .triangle_tex => demo.triangle_tex.render(dt),
         };
 
         var idx: usize = 0;
         for (0..canvas.height) |y| {
             for (0..canvas.width) |x| {
-                const pixel = canvas.pixel_value(x, y);
+                const pixel = canvas.pixel_value(x,y);
                 fenster_buffer[idx] = Canvas.from_rgba(Canvas.blue(pixel), Canvas.green(pixel), Canvas.red(pixel), 255);
                 idx += 1;
             }

@@ -12,7 +12,7 @@
       },
       "program": "${workspaceFolder}/zig-out/bin/${workspaceFolderBasename}.exe",
       "args": [ 
-        "triangle3c"
+        "triangle_tex"
        ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

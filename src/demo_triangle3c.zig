@@ -6,7 +6,7 @@ const log = common.log;
 
 const circle_rad = 90;
 
-pixels: []u32 = undefined,
+pixels: []Canvas.PixelType = undefined,
 canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
 angle: f32 = 0,
@@ -22,7 +22,7 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     const uw: usize = @intCast(width);
     const uh: usize = @intCast(height);
 
-    const pixels = allocator.allocWithOptions(u32, uw * uh * @sizeOf(u32), 4, null) catch {
+    const pixels = allocator.allocWithOptions(Canvas.PixelType, uw * uh * @sizeOf(Canvas.PixelType), 4, null) catch {
         return error.OutOfMemory;
     };
 
@@ -36,7 +36,7 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     };
 }
 
-pub fn pixel_ptr(self: Self) ?[*]u32 {
+pub fn pixel_ptr(self: Self) ?[*]Canvas.PixelType {
     return self.pixels.ptr;
 }
 
@@ -102,6 +102,10 @@ pub fn render(self: *Self, dt: f32) bool {
     if ((self.circle_loc.y < circle_rad) or (self.circle_loc.y > h - circle_rad)) self.circle_delta.y *= -1;
 
     self.canvas.fill_circle(self.circle_loc.x, self.circle_loc.y, circle_rad, ocolor);
+
+    const px = self.canvas.pixel_value(100, 100);
+    const f = Canvas.float(px);
+    log("RENDER from ZIG... {}\n", .{f});
 
     return true;
 }

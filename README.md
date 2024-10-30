@@ -1,28 +1,63 @@
+# Simple Graphics Library in ZIG
 
-Simple graphics library that does not have any dependencies and renders everything into the given memory pixel by pixel. The library is written in ZIG and has no external dependencies, it can be compiled to WASM to run examples in the browser.
+A minimalistic graphics library written in **ZIG** designed for simplicity and educational purposes. This library has no external dependencies and renders graphics directly to memory, pixel by pixel. It can be compiled to **WASM** (WebAssembly) for running examples in a web browser.
 
-Inspired by https://github.com/tsoding/olive.c
+### Inspiration
+Inspired by [olive.c](https://github.com/tsoding/olive.c), this library aims to provide an approachable way to learn ZIG and basic computer graphics. It is not intended for high performance or complete functionality, but rather to serve as an educational tool for exploring rendering techniques and ZIG fundamentals.
 
-To run 'as native', currently only tested for Windows platform, todo for Linux and MAC 
-native code based on fenster c library from Serge Zaitsev
-https://github.com/zserge/fenster
+## Key Characteristics
+- **No External Dependencies**: Self-contained with no reliance on external libraries.
+- **Simple, Educational Design**: Prioritizes straightforward rendering, suitable for learning.
+- **Platform Support**: Native execution is currently tested only on **Windows**, with planned support for Linux and Mac.
+- **WebAssembly (WASM) Compatibility**: Compile to WASM to run examples in a browser environment.
 
-# build / run wasm samples
-to build: zig build
-to run:  start http server for zig-out\html\index.html
+## Native Mode
+In native mode, the library uses the **Fenster C library** by Serge Zaitsev ([fenster](https://github.com/zserge/fenster)) for window management. Native mode is currently supported only on Windows.
 
-# run native examples
-to build: zig build
-to run: zig build run -- dot3d
+---
 
-# Examples
-Currently there are 3 exmample:
+## Installation & Usage
 
-zig-out\bin\zigviz.exe demoName
-or use zig build run -- demoName
+### Build and Run WASM Samples
+1. **Build**: 
+   ```bash
+   zig build
+   ```
+2. **Run**: Start an HTTP server and open:
+   ```
+   zig-out\html\index.html
+   ```
 
-demoName
-    squish
-    dot3d
-    triangle
-  
+### Build and Run Native Examples
+1. **Build**:
+   ```bash
+   zig build
+   ```
+2. **Run a specific example** (e.g., `dot3d`):
+   ```bash
+   zig build run -- dot3d
+   ```
+
+---
+
+## Examples
+
+The library currently includes three demonstration examples. You can run them using either method below:
+
+1. **Using the executable directly**:
+   ```bash
+   zig-out\bin\zigviz.exe demoName
+   ```
+2. **Using `zig build`**:
+   ```bash
+   zig build run -- demoName
+   ```
+
+### Available Demos (`demoName`)
+- **squish**: A simple animation demonstrating pixel manipulation.
+- **dot3d**: Renders 3D points, showcasing basic 3D transformations.
+- **triangle**: Renders a triangle, illustrating basic shape rendering.
+
+---
+
+This library serves as an educational tool to explore graphics rendering in ZIG and can be a foundation for deeper exploration into computer graphics.

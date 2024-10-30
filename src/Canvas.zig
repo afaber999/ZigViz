@@ -69,8 +69,13 @@ pub inline fn alpha(color: PixelType) u8 {
     return @truncate(color >> 8 * 3);
 }
 
+pub inline fn float(color: PixelType) f32 {
+
+    return @as(*const f32, @ptrCast(&color)).*;
+}
+
 pub inline fn from_rgba(r: u8, g: u8, b: u8, a: u8) PixelType {
-    return (@as(PixelType, r) << 8 * 0) | (@as(PixelType, g) << 8 * 1) | (@as(PixelType, b) << 8 * 2) | (@as(PixelType, a) << 8 * 3);
+    return (@as(u32, r) << 8 * 0) | (@as(u32, g) << 8 * 1) | (@as(u32, b) << 8 * 2) | (@as(u32, a) << 8 * 3);
 }
 
 pub inline fn in_x_bounds(self: Self, comptime T: type, x: T) bool {

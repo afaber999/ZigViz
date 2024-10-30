@@ -34,7 +34,7 @@ pub fn write_png(allocator: std.mem.Allocator, canvas: Canvas, writer: anytype) 
 }
 
 const PixelCanvas = struct {
-    pixels: []u32,
+    pixels: []Canvas.PixelType,
     canvas: Canvas,
 };
 
@@ -42,7 +42,7 @@ pub fn read_png(allocator: std.mem.Allocator, reader: anytype) !PixelCanvas {
     var img = try png.Image.read(allocator, reader);
     defer img.deinit(allocator);
 
-    const pixels = try allocator.alloc(u32, img.width * img.height);
+    const pixels = try allocator.alloc(Canvas.PixelType, img.width * img.height);
     errdefer allocator.free(pixels);
     var canvas = Canvas.init(pixels, img.width, img.height, img.width);
 

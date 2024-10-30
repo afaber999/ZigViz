@@ -71,7 +71,7 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigviz",
-        .root_source_file = b.path("src/demo_fenster.zig"),
+        .root_source_file = b.path("src/demos_fenster.zig"),
         .target = target,
         .optimize = optimize,
     });

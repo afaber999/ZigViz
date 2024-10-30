@@ -77,17 +77,22 @@ pub fn render(self: *Self, dt: f32) bool {
     const rp3 = rotate_point(p3, cp, self.angle);
 
     const bcolor = Canvas.from_rgba(0x10, 0x10, 0x10, 0xFF);
-    const fcolor = Canvas.from_rgba(0xFF, 0x80, 0x10, 0xFF);
     const ccolor = Canvas.from_rgba(0xFF, 0x20, 0x20, 0xFF);
     const ocolor = Canvas.from_rgba(0x20, 0x20, 0xAA, 0x99);
 
     self.canvas.clear(bcolor);
-    self.canvas.draw_triangle(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, fcolor);
 
-    self.canvas.fill_circle(cp.x, cp.y, 2, fcolor);
-    self.canvas.fill_circle(rp1.x, rp1.y, 10, ccolor);
-    self.canvas.fill_circle(rp2.x, rp2.y, 10, ccolor);
-    self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
+    const c1 = Canvas.from_rgba(0xFF, 0x00, 0x00, 0xFF);
+    const c2 = Canvas.from_rgba(0x00, 0xFF, 0x10, 0xFF);
+    const c3 = Canvas.from_rgba(0x00, 0x10, 0xFF, 0xFF);
+
+    self.canvas.draw_triangle3c(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, c1, c2, c3);
+    //self.canvas.draw_triangle(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, fcolor);
+
+    // self.canvas.fill_circle(cp.x, cp.y, 2, fcolor);
+    // self.canvas.fill_circle(rp1.x, rp1.y, 10, ccolor);
+    // self.canvas.fill_circle(rp2.x, rp2.y, 10, ccolor);
+    // self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
 
     self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
 
@@ -97,6 +102,10 @@ pub fn render(self: *Self, dt: f32) bool {
     if ((self.circle_loc.y < circle_rad) or (self.circle_loc.y > h - circle_rad)) self.circle_delta.y *= -1;
 
     self.canvas.fill_circle(self.circle_loc.x, self.circle_loc.y, circle_rad, ocolor);
+
+    // const px = self.canvas.pixel_value(100, 100);
+    // const f = Canvas.float(px);
+    // log("RENDER from ZIG... {}\n", .{f});
 
     return true;
 }

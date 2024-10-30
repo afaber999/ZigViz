@@ -4,7 +4,7 @@ const Canvas = @import("Canvas.zig");
 
 const log = common.log;
 
-pixels: []u32 = undefined,
+pixels: []Canvas.PixelType = undefined,
 canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
 
@@ -18,7 +18,7 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     const uw: usize = @intCast(width);
     const uh: usize = @intCast(height);
 
-    const pixels = allocator.allocWithOptions(u32, uw * uh * @sizeOf(u32), 4, null) catch {
+    const pixels = allocator.allocWithOptions(Canvas.PixelType, uw * uh * @sizeOf(Canvas.PixelType), 4, null) catch {
         return error.OutOfMemory;
     };
 
@@ -32,7 +32,7 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     };
 }
 
-pub fn pixel_ptr(self: Self) ?[*]u32 {
+pub fn pixel_ptr(self: Self) ?[*]Canvas.PixelType {
     return self.pixels.ptr;
 }
 
