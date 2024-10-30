@@ -1,5 +1,5 @@
 const std = @import("std");
-
+const log = @import("common.zig").log;
 pub const Self = @This();
 pub const PixelType = u32;
 
@@ -70,7 +70,6 @@ pub inline fn alpha(color: PixelType) u8 {
 }
 
 pub inline fn float(color: PixelType) f32 {
-
     return @as(*const f32, @ptrCast(&color)).*;
 }
 
@@ -127,6 +126,18 @@ pub fn blend_color(c1: PixelType, c2: PixelType) PixelType {
 
     return from_rgba(@truncate(r), @truncate(g), @truncate(b), a1);
 }
+
+pub const UvPoint = struct {
+    u: f32,
+    v: f32,
+
+    pub fn init(u: f32, v: f32) UvPoint {
+        return UvPoint{
+            .u = u,
+            .v = v,
+        };
+    }
+};
 
 pub const Point = struct {
     x: i32,
@@ -367,6 +378,22 @@ const BaryCoord = struct {
     u2: i32,
     u3: i32,
     det: i32,
+
+    fn detf(self: BaryCoord) f32 {
+        return @as(f32, @floatFromInt(self.det));
+    }
+
+    fn uvx(self: BaryCoord, uv1: UvPoint, uv2: UvPoint, uv3: UvPoint) f32 {
+        return (uv1.u * @as(f32, @floatFromInt(self.u1)) +
+            uv2.u * @as(f32, @floatFromInt(self.u2)) +
+            uv3.u * @as(f32, @floatFromInt(self.u3))) / self.detf();
+    }
+
+    fn uvy(self: BaryCoord, uv1: UvPoint, uv2: UvPoint, uv3: UvPoint) f32 {
+        return (uv1.v * @as(f32, @floatFromInt(self.u1)) +
+            uv2.v * @as(f32, @floatFromInt(self.u2)) +
+            uv3.v * @as(f32, @floatFromInt(self.u3))) / self.detf();
+    }
 };
 
 fn barycentric(p1: Point, p2: Point, p3: Point, pt: Point) ?BaryCoord {
@@ -532,6 +559,90 @@ pub fn draw_triangle3c(self: *Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32,
                 const oc = self.pixel_ptr(@intCast(x), @intCast(y));
                 const nc = blend_color(oc.*, mc);
                 oc.* = nc;
+            }
+
+            // const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), p2.color);
+            // self.set_pixel(@intCast(x), @intCast(y), bc);
+        }
+    }
+}
+
+pub fn fillTriangleTex(self: *Self, x1: i32, y1: i32, x2: i32, y2: i32, x3: i32, y3: i32, texture: Self, uv1: UvPoint, uv2: UvPoint, uv3: UvPoint) void {
+    const TriangleTexData = struct {
+        point: Point,
+        uv: UvPoint,
+        color: PixelType,
+    };
+
+    const c1 = from_rgba(0xFF, 0x00, 0x00, 0xFF);
+    const c2 = from_rgba(0x00, 0xFF, 0x10, 0xFF);
+    const c3 = from_rgba(0x00, 0x10, 0xFF, 0xFF);
+
+    var p1 = TriangleTexData{ .point = Point.init(x1, y1), .uv = uv1, .color = c1 };
+    var p2 = TriangleTexData{ .point = Point.init(x2, y2), .uv = uv2, .color = c2 };
+    var p3 = TriangleTexData{ .point = Point.init(x3, y3), .uv = uv3, .color = c3 };
+
+    if (p1.point.y > p2.point.y) std.mem.swap(TriangleTexData, &p1, &p2);
+    if (p2.point.y > p3.point.y) std.mem.swap(TriangleTexData, &p2, &p3);
+    if (p1.point.y > p2.point.y) std.mem.swap(TriangleTexData, &p1, &p2);
+
+    const d12 = Point.sub(p2.point, p1.point);
+    const d13 = Point.sub(p3.point, p1.point);
+
+    //log("###############\n", .{});
+
+    var y = p1.point.y;
+    while (y <= p2.point.y) : (y += 1) {
+        if (!self.in_y_bounds(i32, y)) continue;
+
+        var s1 = if (d12.y != 0) @divFloor((y - p1.point.y) * d12.x, d12.y) + p1.point.x else p1.point.x;
+        var s2 = if (d13.y != 0) @divFloor((y - p1.point.y) * d13.x, d13.y) + p1.point.x else p1.point.x;
+
+        if (s1 > s2) std.mem.swap(i32, &s1, &s2);
+
+        var x = s1;
+        while (x <= s2) : (x += 1) {
+            if (!self.in_x_bounds(i32, x)) continue;
+            if (barycentric(p1.point, p2.point, p3.point, Point.init(x, y))) |bc| {
+                const tx = @as(u32, @intFromFloat(bc.uvx(p1.uv, p2.uv, p3.uv) * @as(f32, @floatFromInt(texture.width))));
+                const ty = @as(u32, @intFromFloat(bc.uvy(p1.uv, p2.uv, p3.uv) * @as(f32, @floatFromInt(texture.height))));
+
+                if (texture.in_bounds(u32, tx, ty)) {
+                    self.set_pixel(@intCast(x), @intCast(y), texture.pixel_value(tx, ty));
+                } else {
+                    self.set_pixel(@intCast(x), @intCast(y), from_rgba(0xFF, 0x00, 0xFF, 0xFF));
+                    //log("tx: {}, ty: {}\n", .{ tx, ty });
+                }
+            }
+        }
+    }
+    const d32 = Point.sub(p2.point, p3.point);
+    const d31 = Point.sub(p1.point, p3.point);
+
+    y = p2.point.y;
+    while (y <= p3.point.y) : (y += 1) {
+        if (!self.in_y_bounds(i32, y)) continue;
+
+        var s1 = if (d32.y != 0) @divFloor((y - p3.point.y) * d32.x, d32.y) + p3.point.x else p3.point.x;
+        var s2 = if (d31.y != 0) @divFloor((y - p3.point.y) * d31.x, d31.y) + p3.point.x else p3.point.x;
+
+        if (s1 > s2) std.mem.swap(i32, &s1, &s2);
+
+        var x = s1;
+        while (x <= s2) : (x += 1) {
+            if (!self.in_x_bounds(i32, x)) continue;
+
+            if (!self.in_x_bounds(i32, x)) continue;
+            if (barycentric(p1.point, p2.point, p3.point, Point.init(x, y))) |bc| {
+                const tx = @as(u32, @intFromFloat(bc.uvx(p1.uv, p2.uv, p3.uv) * @as(f32, @floatFromInt(texture.width))));
+                const ty = @as(u32, @intFromFloat(bc.uvy(p1.uv, p2.uv, p3.uv) * @as(f32, @floatFromInt(texture.height))));
+
+                if (texture.in_bounds(u32, tx, ty)) {
+                    self.set_pixel(@intCast(x), @intCast(y), texture.pixel_value(tx, ty));
+                } else {
+                    self.set_pixel(@intCast(x), @intCast(y), from_rgba(0xFF, 0x00, 0xFF, 0xFF));
+                    //log("tx: {}, ty: {}\n", .{ tx, ty });
+                }
             }
 
             // const bc = blend_color(self.pixel_value(@intCast(x), @intCast(y)), p2.color);

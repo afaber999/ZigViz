@@ -4,17 +4,15 @@ const Canvas = @import("Canvas.zig");
 
 const log = common.log;
 
-const circle_rad = 90;
-
 pixels: []Canvas.PixelType = undefined,
 canvas: Canvas = undefined,
 allocator: std.mem.Allocator = undefined,
 angle: f32 = 0,
-
-circle_loc: Canvas.Point = Canvas.Point.init(100, 400),
-circle_delta: Canvas.Point = Canvas.Point.init(1, 1),
+img_canvas: Canvas = undefined,
 
 const Self = @This();
+
+const emedded_png = @embedFile("./assets/tsodinPog.png");
 
 pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     log("INIT from ZIG... {d} {d}\n", .{ width, height });
@@ -29,10 +27,16 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     //log("ALLOCATED  ZIG... {any}\n", .{pixels.ptr});
     const canvas = Canvas.init(pixels, uw, uh, uw);
 
+    var buffer_stream = std.io.fixedBufferStream(emedded_png);
+    const epix_canvas = try common.read_png(allocator, buffer_stream.reader());
+    // AF TODO FIX defer allocator.free(epix_canvas.pixes);
+    const img_canvas = epix_canvas.canvas;
+
     return Self{
         .pixels = pixels,
         .canvas = canvas,
         .allocator = allocator,
+        .img_canvas = img_canvas,
     };
 }
 
@@ -46,7 +50,7 @@ pub fn deinit(self: Self) void {
     }
 }
 
-fn rotate_point(point: Canvas.Point, rotation_point: Canvas.Point, angle: f32) Canvas.Point {
+fn rotatePoint(point: Canvas.Point, rotation_point: Canvas.Point, angle: f32) Canvas.Point {
     var dp = point.sub(rotation_point);
 
     const mag = dp.mag();
@@ -72,40 +76,21 @@ pub fn render(self: *Self, dt: f32) bool {
     const p2 = Canvas.Point.init(@divFloor(w * 1, 8), @divFloor(h * 1, 4));
     const p3 = Canvas.Point.init(@divFloor(w * 7, 8), @divFloor(h * 7, 16));
 
-    const rp1 = rotate_point(p1, cp, self.angle);
-    const rp2 = rotate_point(p2, cp, self.angle);
-    const rp3 = rotate_point(p3, cp, self.angle);
+    const rp1 = rotatePoint(p1, cp, self.angle);
+    const rp2 = rotatePoint(p2, cp, self.angle);
+    const rp3 = rotatePoint(p3, cp, self.angle);
 
     const bcolor = Canvas.from_rgba(0x10, 0x10, 0x10, 0xFF);
     const ccolor = Canvas.from_rgba(0xFF, 0x20, 0x20, 0xFF);
-    const ocolor = Canvas.from_rgba(0x20, 0x20, 0xAA, 0x99);
 
     self.canvas.clear(bcolor);
 
-    const c1 = Canvas.from_rgba(0xFF, 0x00, 0x00, 0xFF);
-    const c2 = Canvas.from_rgba(0x00, 0xFF, 0x10, 0xFF);
-    const c3 = Canvas.from_rgba(0x00, 0x10, 0xFF, 0xFF);
+    const uv1 = Canvas.UvPoint.init(0, 0);
+    const uv2 = Canvas.UvPoint.init(0, 1);
+    const uv3 = Canvas.UvPoint.init(1, 0);
 
-    self.canvas.draw_triangle3c(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, c1, c2, c3);
-    //self.canvas.draw_triangle(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, fcolor);
-
-    // self.canvas.fill_circle(cp.x, cp.y, 2, fcolor);
-    // self.canvas.fill_circle(rp1.x, rp1.y, 10, ccolor);
-    // self.canvas.fill_circle(rp2.x, rp2.y, 10, ccolor);
-    // self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
-
+    self.canvas.fillTriangleTex(rp1.x, rp1.y, rp2.x, rp2.y, rp3.x, rp3.y, self.img_canvas, uv1, uv2, uv3);
     self.canvas.fill_circle(rp3.x, rp3.y, 10, ccolor);
-
-    self.circle_loc = self.circle_loc.add(self.circle_delta);
-
-    if (self.circle_loc.x < circle_rad or self.circle_loc.x > w - circle_rad) self.circle_delta.x *= -1;
-    if ((self.circle_loc.y < circle_rad) or (self.circle_loc.y > h - circle_rad)) self.circle_delta.y *= -1;
-
-    self.canvas.fill_circle(self.circle_loc.x, self.circle_loc.y, circle_rad, ocolor);
-
-    // const px = self.canvas.pixel_value(100, 100);
-    // const f = Canvas.float(px);
-    // log("RENDER from ZIG... {}\n", .{f});
 
     return true;
 }
