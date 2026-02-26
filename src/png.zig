@@ -26,7 +26,7 @@ pub const Ihdr = struct {
     pub const byte_size = 13;
     comptime {
         var total: usize = 0;
-        for (@typeInfo(Ihdr).Struct.fields) |field| {
+        for (@typeInfo(Ihdr).@"struct".fields) |field| {
             total += @sizeOf(field.type);
         }
         std.debug.assert(total == byte_size);
@@ -81,7 +81,7 @@ pub const ChunkType = blk: {
         };
     }
 
-    break :blk @Type(.{ .Enum = .{
+    break :blk @Type(.{ .@"enum" = .{
         .tag_type = u32,
         .fields = &fields,
         .decls = &.{},
@@ -123,7 +123,7 @@ pub fn Decoder(comptime Reader: type) type {
 
             // Read data chunks
             var data: ?std.ArrayList(u8) = null;
-            defer if (data) |l| l.deinit();
+            defer if (data) |*l| l.deinit(self.allocator);
             var palette: ?[][4]u16 = null;
             defer if (palette) |p| self.allocator.free(p);
             var transparent_color: ?[3]u16 = null; // Not normalized. If grayscale, only first value is used
@@ -166,9 +166,9 @@ pub fn Decoder(comptime Reader: type) type {
 
                     // TODO: streaming
                     .idat => if (data) |*l| {
-                        try l.appendSlice(chunk.data);
+                        try l.appendSlice(self.allocator, chunk.data);
                     } else {
-                        data = std.ArrayList(u8).fromOwnedSlice(self.allocator, chunk.data);
+                        data = std.ArrayList(u8).fromOwnedSlice(chunk.data);
                         free = false;
                     },
 
@@ -320,9 +320,15 @@ fn readPixels(
     transparent_color: ?[3]u16, // Not normalized. If grayscale, only first value is used
     data: []const u8,
 ) ![][4]u16 {
-    var compressed_stream = std.io.fixedBufferStream(data);
-    var data_stream = std.compress.zlib.decompressor(compressed_stream.reader());
-    const datar = data_stream.reader();
+    var compressed_reader: std.Io.Reader = .fixed(data);
+    var decompressed_writer: std.Io.Writer.Allocating = .init(allocator);
+    defer decompressed_writer.deinit();
+    var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
+    var data_stream: std.compress.flate.Decompress = .init(&compressed_reader, .zlib, &decompress_buffer);
+    _ = try data_stream.reader.streamRemaining(&decompressed_writer.writer);
+
+    var decompressed_stream = std.io.fixedBufferStream(decompressed_writer.written());
+    const datar = decompressed_stream.reader();
 
     // TODO: interlacing
     var pixels = try allocator.alloc([4]u16, ihdr.width * ihdr.height);
@@ -360,37 +366,35 @@ fn readPixels(
         };
         try datar.readNoEof(line);
         filterScanline(filter, ihdr.bit_depth, components(ihdr.color_type), prev_line, line);
-
-        var line_stream = std.io.fixedBufferStream(line);
-        var bits = std.io.bitReader(.big, line_stream.reader());
+        var line_bit_pos: usize = 0;
 
         var x: u32 = 0;
         while (x < ihdr.width) : (x += 1) {
             var pix: [4]u16 = switch (ihdr.color_type) {
                 .grayscale => blk: {
-                    const v = try bits.readBitsNoEof(u16, ihdr.bit_depth);
+                    const v = try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth);
                     break :blk .{ v, v, v, component_max };
                 },
                 .grayscale_alpha => blk: {
-                    const v = try bits.readBitsNoEof(u16, ihdr.bit_depth);
-                    const a = try bits.readBitsNoEof(u16, ihdr.bit_depth);
+                    const v = try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth);
+                    const a = try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth);
                     break :blk .{ v, v, v, a };
                 },
 
                 .truecolor => .{
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
                     component_max,
                 },
                 .truecolor_alpha => .{
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
-                    try bits.readBitsNoEof(u16, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
+                    try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth),
                 },
 
-                .indexed => palette.?[try bits.readBitsNoEof(u8, ihdr.bit_depth)],
+                .indexed => palette.?[try readBitsNoEof(line, &line_bit_pos, ihdr.bit_depth)],
             };
 
             if (transparent_color) |trns| {
@@ -410,7 +414,7 @@ fn readPixels(
             }
         }
 
-        std.debug.assert(line_stream.pos == line_stream.buffer.len);
+        std.debug.assert(line_bit_pos <= line.len * 8);
 
         std.mem.swap([]u8, &line, &prev_line);
     }
@@ -493,12 +497,14 @@ pub fn Encoder(comptime Writer: type) type {
 
             // Write and compress pixel data into buffer
             var data = std.ArrayList(u8).init(self.allocator);
-            defer data.deinit();
+            defer data.deinit(self.allocator);
             {
                 // TODO: add option for compression level
-                var compressor = try std.compress.zlib.compressor(data.writer(), .{});
-                try writePixels(self.allocator, ihdr, img.pixels, compressor.writer());
-                try compressor.finish();
+                var compressed_writer = data.writer(self.allocator);
+                var compress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
+                var compressor = std.compress.flate.Compress.init(&compressed_writer, &compress_buffer, .{ .container = .zlib });
+                try writePixels(self.allocator, ihdr, img.pixels, compressor.writer);
+                try compressor.end();
             }
 
             // Write buffer
@@ -605,8 +611,8 @@ fn writePixels(
     std.debug.assert(ihdr.width * ihdr.height == pixels.len);
     var y: u32 = 0;
     while (y < ihdr.height) : (y += 1) {
-        var line_stream = std.io.fixedBufferStream(line);
-        var bits = std.io.bitWriter(.big, line_stream.writer());
+        @memset(line, 0);
+        var line_bit_pos: usize = 0;
 
         var x: u32 = 0;
         while (x < ihdr.width) : (x += 1) {
@@ -617,23 +623,23 @@ fn writePixels(
 
             switch (ihdr.color_type) {
                 .grayscale => {
-                    try bits.writeBits(rgba[0], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[0], ihdr.bit_depth);
                 },
                 .grayscale_alpha => {
-                    try bits.writeBits(rgba[0], ihdr.bit_depth);
-                    try bits.writeBits(rgba[3], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[0], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[3], ihdr.bit_depth);
                 },
 
                 .truecolor => {
-                    try bits.writeBits(rgba[0], ihdr.bit_depth);
-                    try bits.writeBits(rgba[1], ihdr.bit_depth);
-                    try bits.writeBits(rgba[2], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[0], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[1], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[2], ihdr.bit_depth);
                 },
                 .truecolor_alpha => {
-                    try bits.writeBits(rgba[0], ihdr.bit_depth);
-                    try bits.writeBits(rgba[1], ihdr.bit_depth);
-                    try bits.writeBits(rgba[2], ihdr.bit_depth);
-                    try bits.writeBits(rgba[3], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[0], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[1], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[2], ihdr.bit_depth);
+                    writeBits(line, &line_bit_pos, rgba[3], ihdr.bit_depth);
                 },
 
                 .indexed => unreachable, // TODO: indexed color encoding
@@ -644,6 +650,46 @@ fn writePixels(
         try w.writeByte(@intFromEnum(FilterType.none));
         try w.writeAll(line);
     }
+}
+
+fn readBitsNoEof(line: []const u8, bit_pos: *usize, bit_count: u5) !u16 {
+    if (bit_pos.* + bit_count > line.len * 8) {
+        return error.EndOfStream;
+    }
+
+    var value: u16 = 0;
+    var i: usize = 0;
+    while (i < bit_count) : (i += 1) {
+        const abs_bit = bit_pos.* + i;
+        const byte = line[@divFloor(abs_bit, 8)];
+        const shift: u3 = @intCast(7 - @as(u3, @intCast(abs_bit % 8)));
+        const bit: u16 = @intCast((byte >> shift) & 1);
+        value = (value << 1) | bit;
+    }
+
+    bit_pos.* += bit_count;
+    return value;
+}
+
+fn writeBits(line: []u8, bit_pos: *usize, value: u16, bit_count: u5) void {
+    std.debug.assert(bit_pos.* + bit_count <= line.len * 8);
+
+    var i: usize = 0;
+    while (i < bit_count) : (i += 1) {
+        const src_shift = bit_count - @as(u5, @intCast(i)) - 1;
+        const bit = @as(u8, @intCast((value >> src_shift) & 1));
+        const abs_bit = bit_pos.* + i;
+        const byte_idx = @divFloor(abs_bit, 8);
+        const bit_idx: u3 = @intCast(7 - @as(u3, @intCast(abs_bit % 8)));
+
+        if (bit == 1) {
+            line[byte_idx] |= (@as(u8, 1) << bit_idx);
+        } else {
+            line[byte_idx] &= ~(@as(u8, 1) << bit_idx);
+        }
+    }
+
+    bit_pos.* += bit_count;
 }
 
 pub const ColorType = enum(u8) {

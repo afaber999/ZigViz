@@ -10,8 +10,10 @@ var dot3d: Dot3d = undefined;
 var squish: Squish = undefined;
 
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
+    _ = error_return_trace;
+    _ = ret_addr;
     common.log("PANIC: {s}\n", .{msg});
-    std.builtin.default_panic(msg, error_return_trace, ret_addr);
+    @trap();
 }
 
 pub export fn triangle_init(width: i32, height: i32) ?[*]u32 {

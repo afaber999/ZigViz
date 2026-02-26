@@ -13,9 +13,10 @@ pub fn print(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
+    _ = error_return_trace;
+    _ = ret_addr;
     print("PANIC: {s}\n", .{msg});
-    //recover.panicked();
-    std.builtin.default_panic(msg, error_return_trace, ret_addr);
+    @trap();
 }
 
 var x_ofs: u32 = 0;
@@ -25,7 +26,7 @@ pub export fn init(width: i32, height: i32) ?[*]u32 {
 
     const uw: usize = @intCast(width);
     const uh: usize = @intCast(height);
-    pixels = std.heap.wasm_allocator.allocWithOptions(u32, uw * uh * @sizeOf(u32), 4, null) catch {
+    pixels = std.heap.wasm_allocator.alloc(u32, uw * uh) catch {
         return null;
     };
     print("ALLOCATED  ZIG... {any}\n", .{pixels.ptr});

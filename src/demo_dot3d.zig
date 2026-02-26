@@ -18,7 +18,7 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     const uw: usize = @intCast(width);
     const uh: usize = @intCast(height);
 
-    const pixels = allocator.allocWithOptions(Canvas.PixelType, uw * uh * @sizeOf(Canvas.PixelType), 4, null) catch {
+    const pixels = allocator.alloc(Canvas.PixelType, uw * uh) catch {
         return error.OutOfMemory;
     };
 

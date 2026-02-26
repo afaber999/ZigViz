@@ -17,6 +17,7 @@ In native mode, the library uses the **Fenster C library** by Serge Zaitsev ([fe
 ---
 
 ## Installation & Usage
+Tested with Zig 0.15
 
 ### Build and Run WASM Samples
 1. **Build**: 
@@ -57,6 +58,8 @@ The library currently includes three demonstration examples. You can run them us
 - **squish**: A simple animation demonstrating pixel manipulation.
 - **dot3d**: Renders 3D points, showcasing basic 3D transformations.
 - **triangle**: Renders a triangle, illustrating basic shape rendering.
+- **triangle_tex**: Renders a triangle, illustrating basic shape rendering with texture.
+- **triangle_3c**: Renders a triangle, illustrating basic shape rendering with color gradient per vertex.
 
 ---
 
