@@ -1,7 +1,5 @@
 const std = @import("std");
-const c = @cImport({
-    @cInclude("fenster.h");
-});
+const Canvaz = @import("CanvaZ");
 const Canvas = @import("Canvas.zig");
 const Dot3d = @import("demo_dot3d.zig");
 const Squish = @import("demo_squish.zig");
@@ -33,9 +31,13 @@ pub fn main() !void {
     }
 
     // nedded for ARGB to RGBA conversion
-    var fenster_buffer = try allocator.alloc(u32, width * height);
-    var canvas: Canvas = undefined;
+    var canvaz = try Canvaz.init(allocator);
+    defer canvaz.deinit();
 
+    try canvaz.createWindow("Penzil circles demo", width, height);
+    const buffer = canvaz.dataBuffer();
+
+    var canvas: Canvas = undefined;
     var demo: Demo = undefined;
 
     const demoName = args[1];
@@ -66,22 +68,8 @@ pub fn main() !void {
         .triangle_tex => demo.triangle_tex.deinit(),
     };
 
-    var f : c.fenster = .{
-        .width = width,
-        .height = height,
-        .title = "DEMO window",
-        .buf = fenster_buffer.ptr,
-    };
-
-    _ = c.fenster_open(&f);
-    defer c.fenster_close(&f);
-
-    var now: i64 = c.fenster_time();
-    var prev: i64 = now;
-
-    while (c.fenster_loop(&f) == 0) {
-        const dt: f32 = @floatFromInt(now - prev);
-        prev = now;
+    while (canvaz.update() == 0) {
+        const dt = canvaz.delta() * 1000;
 
         _ = switch (demo) {
             .dot3d => demo.dot3d.render(dt),
@@ -94,22 +82,13 @@ pub fn main() !void {
         var idx: usize = 0;
         for (0..canvas.height) |y| {
             for (0..canvas.width) |x| {
-                const pixel = canvas.pixel_value(x,y);
-                fenster_buffer[idx] = Canvas.from_rgba(Canvas.blue(pixel), Canvas.green(pixel), Canvas.red(pixel), 255);
+                const pixel = canvas.pixel_value(x, y);
+                buffer[idx] = Canvas.from_rgba(Canvas.blue(pixel), Canvas.green(pixel), Canvas.red(pixel), 255);
                 idx += 1;
             }
         }
 
-        // Exit when Escape is pressed
-        if (f.keys[27] != 0) {
-            break;
-        }
-        // Keep ~60 FPS
-        const diff: i64 = 1000 / 60 - (c.fenster_time() - now);
-        if (diff > 0) {
-            c.fenster_sleep(diff);
-        }
-        now = c.fenster_time();
+        Canvaz.sleep(16);
     }
 }
 

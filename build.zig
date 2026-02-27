@@ -76,7 +76,7 @@ pub fn build(b: *std.Build) void {
     b.getInstallStep().dependOn(&target_output.step);
 
     const exe_module = b.createModule(.{
-        .root_source_file = b.path("src/demos_fenster.zig"),
+        .root_source_file = b.path("src/demos_canvaz.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -86,8 +86,9 @@ pub fn build(b: *std.Build) void {
         .root_module = exe_module,
     });
 
-    exe.addIncludePath(b.path("src"));
-    exe.addCSourceFile(.{ .file = b.path("src/fenster.c"), .flags = &[_][]const u8{} });
+    // use CanvaZ as a dependency
+    const canvaz = @import("CanvaZ");
+    canvaz.addCanvazDependencies(exe, b, target, optimize, "CanvaZ");
 
     switch (target.result.os.tag) {
         .macos => exe.linkFramework("Cocoa"),
@@ -141,7 +142,7 @@ pub fn build(b: *std.Build) void {
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
     const exe_tests_module = b.createModule(.{
-        .root_source_file = b.path("src/demos_fenster.zig"),
+        .root_source_file = b.path("src/demos_canvaz.zig"),
         .target = target,
         .optimize = optimize,
     });

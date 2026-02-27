@@ -12,7 +12,7 @@ Inspired by [olive.c](https://github.com/tsoding/olive.c), this library aims to 
 - **WebAssembly (WASM) Compatibility**: Compile to WASM to run examples in a browser environment.
 
 ## Native Mode
-In native mode, the library uses the **Fenster C library** by Serge Zaitsev ([fenster](https://github.com/zserge/fenster)) for window management. Native mode is currently supported only on Windows.
+In native mode, the library uses the **CanvaZ library** supports Windows, Linux and Mac.
 
 ---
 
