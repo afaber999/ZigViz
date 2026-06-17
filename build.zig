@@ -91,13 +91,13 @@ pub fn build(b: *std.Build) void {
     canvaz.addCanvazDependencies(exe, b, target, optimize, "CanvaZ");
 
     switch (target.result.os.tag) {
-        .macos => exe.linkFramework("Cocoa"),
-        .windows => exe.linkSystemLibrary("gdi32"),
-        .linux => exe.linkSystemLibrary("X11"),
+        .macos => exe.root_module.linkFramework("Cocoa", .{}),
+        .windows => exe.root_module.linkSystemLibrary("gdi32", .{}),
+        .linux => exe.root_module.linkSystemLibrary("X11", .{}),
         else => {},
     }
 
-    exe.linkLibC();
+    exe.root_module.link_libc = true;
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

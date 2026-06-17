@@ -25,11 +25,16 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
+
         //for local development
         // .CanvaZ = .{
         //     .path = "../CanvaZ",
         // },
-        .CanvaZ = .{ .url = "https://github.com/afaber999/CanvaZ/archive/refs/tags/0.0.3.tar.gz", .hash = "CanvaZ-0.0.2-5DrNMcFEAAAzAP3eAzEcFrB2MM5-C0Uu6PVRBjr9H4OA" },
+        .CanvaZ = .{
+            .url = "https://github.com/afaber999/CanvaZ/archive/refs/tags/0.0.4.tar.gz",
+            // Refresh with `zig fetch <url>` when network access is available.
+            .hash = "CanvaZ-0.0.2-5DrNMYNIAAD7GloCinN0nhtbkMOHXUIldlDVltGx-YtN",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.

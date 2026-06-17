@@ -61,32 +61,13 @@ pub const Chunk = struct {
     ctype: ChunkType,
     data: []u8,
 };
-pub const ChunkType = blk: {
-    const types = [_]*const [4]u8{
-        "IHDR",
-        "PLTE",
-        "IDAT",
-        "IEND",
-        "tRNS",
-    };
-
-    var fields: [types.len]std.builtin.Type.EnumField = undefined;
-    for (types, 0..) |name, i| {
-        var field_name_buf: [4:0]u8 = undefined;
-        const field_name = std.ascii.lowerString(&field_name_buf, name);
-        field_name_buf[field_name.len] = 0;
-        fields[i] = .{
-            .name = field_name[0.. :0],
-            .value = @as(u32, @bitCast(name.*)),
-        };
-    }
-
-    break :blk @Type(.{ .@"enum" = .{
-        .tag_type = u32,
-        .fields = &fields,
-        .decls = &.{},
-        .is_exhaustive = false,
-    } });
+pub const ChunkType = enum(u32) {
+    ihdr = @as(u32, @bitCast([4]u8{ 'I', 'H', 'D', 'R' })),
+    plte = @as(u32, @bitCast([4]u8{ 'P', 'L', 'T', 'E' })),
+    idat = @as(u32, @bitCast([4]u8{ 'I', 'D', 'A', 'T' })),
+    iend = @as(u32, @bitCast([4]u8{ 'I', 'E', 'N', 'D' })),
+    trns = @as(u32, @bitCast([4]u8{ 't', 'R', 'N', 'S' })),
+    _,
 };
 pub fn chunkType(name: [4]u8) ChunkType {
     const x: u32 = @bitCast(name);
@@ -95,6 +76,60 @@ pub fn chunkType(name: [4]u8) ChunkType {
 pub fn chunkName(ctype: ChunkType) [4]u8 {
     return @bitCast(@intFromEnum(ctype));
 }
+
+pub const FixedBufferReader = struct {
+    data: []const u8,
+    pos: usize = 0,
+
+    pub fn init(data: []const u8) FixedBufferReader {
+        return .{ .data = data };
+    }
+
+    fn remaining(self: *const FixedBufferReader) usize {
+        return self.data.len - self.pos;
+    }
+
+    pub fn isBytes(self: *FixedBufferReader, expected: []const u8) !bool {
+        if (self.remaining() < expected.len) return false;
+
+        const got = self.data[self.pos..][0..expected.len];
+        if (!std.mem.eql(u8, got, expected)) return false;
+
+        self.pos += expected.len;
+        return true;
+    }
+
+    pub fn readNoEof(self: *FixedBufferReader, out: []u8) !void {
+        if (self.remaining() < out.len) return error.EndOfStream;
+        @memcpy(out, self.data[self.pos..][0..out.len]);
+        self.pos += out.len;
+    }
+
+    pub fn readAll(self: *FixedBufferReader, out: []u8) !usize {
+        const n = @min(self.remaining(), out.len);
+        @memcpy(out[0..n], self.data[self.pos..][0..n]);
+        self.pos += n;
+        return n;
+    }
+
+    pub fn readByte(self: *FixedBufferReader) !u8 {
+        if (self.remaining() == 0) return error.EndOfStream;
+        defer self.pos += 1;
+        return self.data[self.pos];
+    }
+
+    pub fn readBytesNoEof(self: *FixedBufferReader, comptime n: usize) ![n]u8 {
+        var out: [n]u8 = undefined;
+        try self.readNoEof(&out);
+        return out;
+    }
+
+    pub fn readInt(self: *FixedBufferReader, comptime T: type, endian: std.builtin.Endian) !T {
+        const n = comptime @divExact(@typeInfo(T).int.bits, 8);
+        const bytes = try self.readBytesNoEof(n);
+        return std.mem.readInt(T, &bytes, endian);
+    }
+};
 
 // TODO: reduce allocations using streaming
 
@@ -247,8 +282,7 @@ pub fn Decoder(comptime Reader: type) type {
             if (chunk.ctype != .ihdr) {
                 return error.InvalidPng;
             }
-            var stream = std.io.fixedBufferStream(chunk.data);
-            const r = stream.reader();
+            var r = FixedBufferReader.init(chunk.data);
 
             // Read and validate width and height
             const width = try r.readInt(u32, .big);
@@ -259,7 +293,14 @@ pub fn Decoder(comptime Reader: type) type {
 
             // Read and validate color type and bit depth
             const bit_depth = try r.readInt(u8, .big);
-            const color_type = try std.meta.intToEnum(ColorType, try r.readInt(u8, .big));
+            const color_type: ColorType = switch (try r.readInt(u8, .big)) {
+                0 => .grayscale,
+                2 => .truecolor,
+                3 => .indexed,
+                4 => .grayscale_alpha,
+                6 => .truecolor_alpha,
+                else => return error.InvalidEnumTag,
+            };
             const allowed_bit_depths: []const u5 = switch (color_type) {
                 .grayscale => &.{ 1, 2, 4, 8, 16 },
                 .truecolor, .grayscale_alpha, .truecolor_alpha => &.{ 8, 16 },
@@ -272,11 +313,21 @@ pub fn Decoder(comptime Reader: type) type {
             }
 
             // Read and validate compression method and filter method
-            const compression_method = try std.meta.intToEnum(CompressionMethod, try r.readInt(u8, .big));
-            const filter_method = try std.meta.intToEnum(FilterMethod, try r.readInt(u8, .big));
+            const compression_method: CompressionMethod = switch (try r.readInt(u8, .big)) {
+                0 => .deflate,
+                else => return error.InvalidEnumTag,
+            };
+            const filter_method: FilterMethod = switch (try r.readInt(u8, .big)) {
+                0 => .default,
+                else => return error.InvalidEnumTag,
+            };
 
             // Read and validate interlace method
-            const interlace_method = try std.meta.intToEnum(InterlaceMethod, try r.readInt(u8, .big));
+            const interlace_method: InterlaceMethod = switch (try r.readInt(u8, .big)) {
+                0 => .none,
+                1 => .adam7,
+                else => return error.InvalidEnumTag,
+            };
 
             return Ihdr{
                 .width = width,
@@ -327,8 +378,7 @@ fn readPixels(
     var data_stream: std.compress.flate.Decompress = .init(&compressed_reader, .zlib, &decompress_buffer);
     _ = try data_stream.reader.streamRemaining(&decompressed_writer.writer);
 
-    var decompressed_stream = std.io.fixedBufferStream(decompressed_writer.written());
-    const datar = decompressed_stream.reader();
+    var datar = FixedBufferReader.init(decompressed_writer.written());
 
     // TODO: interlacing
     var pixels = try allocator.alloc([4]u16, ihdr.width * ihdr.height);
@@ -361,8 +411,13 @@ fn readPixels(
 
     var y: u32 = 0;
     while (y < ihdr.height) : (y += 1) {
-        const filter = std.meta.intToEnum(FilterType, try datar.readByte()) catch {
-            return error.InvalidPng;
+        const filter: FilterType = switch (try datar.readByte()) {
+            0 => .none,
+            1 => .sub,
+            2 => .up,
+            3 => .average,
+            4 => .paeth,
+            else => return error.InvalidPng,
         };
         try datar.readNoEof(line);
         filterScanline(filter, ihdr.bit_depth, components(ihdr.color_type), prev_line, line);
@@ -551,26 +606,19 @@ pub fn Encoder(comptime Writer: type) type {
             remaining: if (std.debug.runtime_safety) usize else void,
             crc: std.hash.Crc32 = std.hash.Crc32.init(),
 
-            fn write(self: *ChunkWriter, data: []const u8) !usize {
-                const n = try self.w.write(data);
-                self.crc.update(data[0..n]);
-
-                if (std.debug.runtime_safety) {
-                    self.remaining -= n; // Check bounds
-                }
-
-                return n;
-            }
-
-            fn writer(self: *ChunkWriter) std.io.Writer(*ChunkWriter, Writer.Error, write) {
-                return .{ .context = self };
-            }
-
             fn writeAll(self: *ChunkWriter, data: []const u8) !void {
-                try self.writer().writeAll(data);
+                try self.w.writeAll(data);
+                self.crc.update(data);
+                if (std.debug.runtime_safety) {
+                    self.remaining -= data.len;
+                }
             }
+
             fn writeInt(self: *ChunkWriter, comptime T: type, data: T, endian: std.builtin.Endian) !void {
-                try self.writer().writeInt(T, data, endian);
+                const n = comptime @divExact(@typeInfo(T).int.bits, 8);
+                var buf: [n]u8 = undefined;
+                std.mem.writeInt(T, &buf, data, endian);
+                try self.writeAll(&buf);
             }
 
             fn finish(self: *ChunkWriter) !void {

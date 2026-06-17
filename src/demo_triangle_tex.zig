@@ -1,6 +1,7 @@
 const std = @import("std");
 const common = @import("common.zig");
 const Canvas = @import("Canvas.zig");
+const png = @import("png.zig");
 
 const log = common.log;
 
@@ -27,8 +28,8 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
     //log("ALLOCATED  ZIG... {any}\n", .{pixels.ptr});
     const canvas = Canvas.init(pixels, uw, uh, uw);
 
-    var buffer_stream = std.io.fixedBufferStream(emedded_png);
-    const epix_canvas = try common.read_png(allocator, buffer_stream.reader());
+    var png_reader = png.FixedBufferReader.init(emedded_png);
+    const epix_canvas = try common.read_png(allocator, &png_reader);
     // AF TODO FIX defer allocator.free(epix_canvas.pixes);
     const img_canvas = epix_canvas.canvas;
 

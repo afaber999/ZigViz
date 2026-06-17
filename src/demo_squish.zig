@@ -1,6 +1,7 @@
 const std = @import("std");
 const common = @import("common.zig");
 const Canvas = @import("Canvas.zig");
+const png = @import("png.zig");
 
 const log = common.log;
 
@@ -24,8 +25,8 @@ pub fn init(allocator: std.mem.Allocator, width: i32, height: i32) !Self {
         return error.OutOfMemory;
     };
 
-    var buffer_stream = std.io.fixedBufferStream(emedded_png);
-    const epix_canvas = try common.read_png(allocator, buffer_stream.reader());
+    var png_reader = png.FixedBufferReader.init(emedded_png);
+    const epix_canvas = try common.read_png(allocator, &png_reader);
     //defer allocator.free(epix_canvas.pixes);
     const img_canvas = epix_canvas.canvas;
 

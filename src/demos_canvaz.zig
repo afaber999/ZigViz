@@ -2,6 +2,7 @@ const std = @import("std");
 const Canvaz = @import("CanvaZ");
 const Canvas = @import("Canvas.zig");
 const Dot3d = @import("demo_dot3d.zig");
+const WireFrame3d = @import("demo_wireframe3d.zig");
 const Squish = @import("demo_squish.zig");
 const Triangle = @import("demo_triangle.zig");
 const Triangle3c = @import("demo_triangle3c.zig");
@@ -9,21 +10,21 @@ const TriangleTex = @import("demo_triangle_tex.zig");
 
 const Demo = union(enum) {
     dot3d: Dot3d,
+    wireframe3d: WireFrame3d,
     squish: Squish,
     triangle: Triangle,
     triangle3c: Triangle3c,
     triangle_tex: TriangleTex,
 };
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
+    const arena = init.arena.allocator();
 
     const width = 800;
     const height = 600;
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = try init.minimal.args.toSlice(arena);
 
     if (args.len < 2) {
         std.debug.print("Usage: {s} <demo>\n", .{args[0]});
@@ -44,6 +45,9 @@ pub fn main() !void {
     if (std.mem.eql(u8, demoName, "dot3d")) {
         demo = Demo{ .dot3d = try Dot3d.init(allocator, width, height) };
         canvas = demo.dot3d.canvas;
+    } else if (std.mem.eql(u8, demoName, "wireframe3d")) {
+        demo = Demo{ .wireframe3d = try WireFrame3d.init(allocator, width, height) };
+        canvas = demo.wireframe3d.canvas;
     } else if (std.mem.eql(u8, demoName, "squish")) {
         demo = Demo{ .squish = try Squish.init(allocator, width, height) };
         canvas = demo.squish.canvas;
@@ -62,6 +66,7 @@ pub fn main() !void {
 
     defer switch (demo) {
         .dot3d => demo.dot3d.deinit(),
+        .wireframe3d => demo.wireframe3d.deinit(),
         .squish => demo.squish.deinit(),
         .triangle => demo.triangle.deinit(),
         .triangle3c => demo.triangle3c.deinit(),
@@ -73,6 +78,7 @@ pub fn main() !void {
 
         _ = switch (demo) {
             .dot3d => demo.dot3d.render(dt),
+            .wireframe3d => demo.wireframe3d.render(dt),
             .squish => demo.squish.render(dt),
             .triangle => demo.triangle.render(dt),
             .triangle3c => demo.triangle3c.render(dt),
